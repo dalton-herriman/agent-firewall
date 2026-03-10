@@ -33,6 +33,8 @@ docker compose up -d postgres redis
 alembic upgrade head
 ```
 
+If you already created the database on an earlier revision, rerun migrations so the policy schema picks up resource-pattern list storage added after the initial scaffold.
+
 ## Run tests
 
 ```bash

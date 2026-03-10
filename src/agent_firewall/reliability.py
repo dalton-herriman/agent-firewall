@@ -35,3 +35,14 @@ class ReliabilityState:
 
     def get_cached_result(self, idempotency_key: str) -> object | None:
         return self.idempotent_results.get(idempotency_key)
+
+    def scoped_idempotency_key(
+        self,
+        *,
+        tenant_id: str,
+        project_id: str | None,
+        tool_name: str,
+        idempotency_key: str,
+    ) -> str:
+        project_scope = project_id or "-"
+        return f"{tenant_id}:{project_scope}:{tool_name}:{idempotency_key}"

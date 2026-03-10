@@ -194,6 +194,9 @@ async def test_policy_adapter_and_runtime_config_crud() -> None:
     assert create_runtime_config.status_code == 201
     assert audit_logs.status_code == 200
     assert audit_logs.json()[0]["actor_id"] == "admin"
+    reasons = [entry["reason"] for entry in audit_logs.json()]
+    assert "policy.publish" in reasons
+    assert "policy.rollback" in reasons
 
 
 @pytest.mark.asyncio
@@ -264,3 +267,45 @@ async def test_project_scope_rejects_out_of_scope_request() -> None:
         )
 
     assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_invalid_not_in_policy_payload_is_rejected() -> None:
+    app = create_app(
+        Settings(
+            app_env="test",
+            auth_enabled=True,
+            api_keys=[
+                ApiKeyConfig(
+                    key_id="manage-key-1",
+                    key="manage-key",
+                    actor_id="admin",
+                    tenant_id="tenant-a",
+                    roles=["admin"],
+                    scopes=[],
+                    project_ids=["project-a"],
+                )
+            ],
+        ),
+        container=build_test_container(),
+    )
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
+        response = await client.post(
+            "/v1/policies",
+            json={
+                "tenant_id": "tenant-a",
+                "name": "bad not_in policy",
+                "action": "deny",
+                "operation": "invoke",
+                "subject": {"agent_ids": ["agent-1"]},
+                "resource": {"tool_names": ["weather.lookup"]},
+                "conditions": [{"field": "tool_args.city", "operator": "not_in", "value": "Chicago"}],
+                "priority": 1,
+                "version": 1,
+                "status": "draft",
+                "enabled": True,
+            },
+            headers={"x-agent-firewall-key": "manage-key"},
+        )
+
+    assert response.status_code == 422

@@ -20,4 +20,4 @@ When `AGENT_FIREWALL_AUTH_ENABLED=true`, requests must include `X-Agent-Firewall
 ]
 ```
 
-Management and evaluation APIs are tenant-scoped. Control-plane changes are written to the audit log with the authenticated `actor_id`.
+Management and evaluation APIs are tenant-scoped. Control-plane changes are written to the audit log with the authenticated `actor_id`, including publish and rollback operations.

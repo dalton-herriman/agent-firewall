@@ -32,6 +32,7 @@ class PolicyRuleRow(Base):
     description: Mapped[str | None] = mapped_column(Text(), nullable=True)
     effect: Mapped[str] = mapped_column("action", String(10))
     tool: Mapped[str] = mapped_column(String(200), index=True)
+    resource_tool_names: Mapped[list[str]] = mapped_column(JSON, default=list)
     subject_agent_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
     invocation_action: Mapped[str] = mapped_column("invocation_action", String(50), default="invoke")
     conditions: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
@@ -99,7 +100,6 @@ class PostgresPolicyRepository(PolicyRepository):
             rows = await session.scalars(
                 select(PolicyRuleRow).where(
                     PolicyRuleRow.tenant_id == tenant_id,
-                    PolicyRuleRow.agent_id == agent_id,
                     PolicyRuleRow.enabled.is_(True),
                 )
             )
@@ -112,7 +112,7 @@ class PostgresPolicyRepository(PolicyRepository):
                     effect=row.effect,
                     operation=row.invocation_action,
                     subject=PolicySubject(agent_ids=row.subject_agent_ids),
-                    resource=PolicyResource(tool_names=[row.tool]),
+                    resource=PolicyResource(tool_names=row.resource_tool_names or [row.tool]),
                     conditions=[PolicyCondition.model_validate(item) for item in row.conditions],
                     priority=row.priority,
                     version=row.version,
@@ -120,6 +120,7 @@ class PostgresPolicyRepository(PolicyRepository):
                     enabled=row.enabled,
                 )
                 for row in rows
+                if not row.subject_agent_ids or agent_id in row.subject_agent_ids
             ]
 
     async def list_policies(self, tenant_id: str) -> Sequence[PolicyRule]:
@@ -136,7 +137,7 @@ class PostgresPolicyRepository(PolicyRepository):
                     effect=row.effect,
                     operation=row.invocation_action,
                     subject=PolicySubject(agent_ids=row.subject_agent_ids),
-                    resource=PolicyResource(tool_names=[row.tool]),
+                    resource=PolicyResource(tool_names=row.resource_tool_names or [row.tool]),
                     conditions=[PolicyCondition.model_validate(item) for item in row.conditions],
                     priority=row.priority,
                     version=row.version,
@@ -159,7 +160,7 @@ class PostgresPolicyRepository(PolicyRepository):
                 effect=row.effect,
                 operation=row.invocation_action,
                 subject=PolicySubject(agent_ids=row.subject_agent_ids),
-                resource=PolicyResource(tool_names=[row.tool]),
+                resource=PolicyResource(tool_names=row.resource_tool_names or [row.tool]),
                 conditions=[PolicyCondition.model_validate(item) for item in row.conditions],
                 priority=row.priority,
                 version=row.version,
@@ -177,6 +178,7 @@ class PostgresPolicyRepository(PolicyRepository):
                 description=policy.description,
                 effect=policy.effect,
                 tool=policy.resource.tool_names[0] if policy.resource.tool_names else "*",
+                resource_tool_names=policy.resource.tool_names,
                 subject_agent_ids=policy.subject.agent_ids,
                 invocation_action=policy.operation,
                 conditions=[condition.model_dump(mode="json") for condition in policy.conditions],

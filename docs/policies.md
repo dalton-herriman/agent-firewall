@@ -12,6 +12,15 @@ Each policy contains:
 - `priority`: lower values win
 - `version`: monotonically increasing rule revision
 
+## Condition operators
+
+- `eq` and `neq` compare scalar values directly
+- `in` and `not_in` require a list-valued policy operand
+- `contains` checks membership within a string or list field
+- `regex` requires a string pattern
+
+Invalid operator/value combinations are rejected at validation time instead of being interpreted loosely at runtime.
+
 ## Precedence
 
 1. Lower `priority` wins

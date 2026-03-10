@@ -205,6 +205,12 @@ def create_app(settings: Settings | None = None, container: Container | None = N
         policy = await management_service.publish_policy(principal.tenant_id, policy_id)
         if policy is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="policy not found")
+        await management_service.record_management_event(
+            tenant_id=principal.tenant_id,
+            actor_id=principal.actor_id,
+            action="policy.publish",
+            payload=policy.model_dump(mode="json"),
+        )
         return policy
 
     @app.post(f"{settings.api_prefix}/policies/{{policy_id}}/rollback/{{version}}", response_model=PolicyRule)
@@ -217,6 +223,12 @@ def create_app(settings: Settings | None = None, container: Container | None = N
         policy = await management_service.rollback_policy(principal.tenant_id, policy_id, version)
         if policy is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="policy revision not found")
+        await management_service.record_management_event(
+            tenant_id=principal.tenant_id,
+            actor_id=principal.actor_id,
+            action="policy.rollback",
+            payload={"policy_id": policy_id, "restored_version": version, "new_version": policy.version},
+        )
         return policy
 
     @app.get(f"{settings.api_prefix}/adapters", response_model=list[AdapterConfig])

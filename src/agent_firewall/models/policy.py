@@ -16,6 +16,14 @@ class PolicyCondition(BaseModel):
     operator: Literal["eq", "neq", "in", "not_in", "contains", "regex"]
     value: Any
 
+    @model_validator(mode="after")
+    def validate_operator_value(self) -> "PolicyCondition":
+        if self.operator in {"in", "not_in"} and not isinstance(self.value, list):
+            raise ValueError(f"{self.operator} conditions require a list value")
+        if self.operator == "regex" and not isinstance(self.value, str):
+            raise ValueError("regex conditions require a string pattern")
+        return self
+
 
 class PolicySubject(BaseModel):
     model_config = ConfigDict(extra="forbid")

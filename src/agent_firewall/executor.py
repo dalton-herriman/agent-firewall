@@ -39,7 +39,8 @@ class HttpToolExecutor:
             raise RuntimeError("circuit breaker open")
 
         idempotency_key = self._idempotency_key(request)
-        cached = self._reliability_state.get_cached_result(idempotency_key) if idempotency_key else None
+        scoped_key = self._scoped_idempotency_key(request, idempotency_key) if idempotency_key else None
+        cached = self._reliability_state.get_cached_result(scoped_key) if scoped_key else None
         if cached is not None:
             return cached  # type: ignore[return-value]
 
@@ -73,8 +74,8 @@ class HttpToolExecutor:
                     decision=decision,
                 )
                 self._reliability_state.record_success(circuit_key)
-                if idempotency_key:
-                    self._reliability_state.cache_result(idempotency_key, result)
+                if scoped_key:
+                    self._reliability_state.cache_result(scoped_key, result)
                 return result
             except (httpx.HTTPError, httpx.TimeoutException) as exc:
                 last_exc = exc
@@ -92,3 +93,11 @@ class HttpToolExecutor:
     def _idempotency_key(self, request: ToolInvocationRequest) -> str | None:
         raw = request.metadata.get("idempotency_key")
         return str(raw) if raw else None
+
+    def _scoped_idempotency_key(self, request: ToolInvocationRequest, idempotency_key: str) -> str:
+        return self._reliability_state.scoped_idempotency_key(
+            tenant_id=request.tenant_id,
+            project_id=request.project_id,
+            tool_name=request.tool_name,
+            idempotency_key=idempotency_key,
+        )

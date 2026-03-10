@@ -29,7 +29,7 @@ def _matches_condition(request: ToolInvocationRequest, condition: PolicyConditio
         case "in":
             return candidate in value if isinstance(value, list) else False
         case "not_in":
-            return candidate not in value if isinstance(value, list) else True
+            return candidate not in value if isinstance(value, list) else False
         case "contains":
             return value in candidate if isinstance(candidate, (list, str)) else False
         case "regex":
