@@ -56,6 +56,8 @@ make verify-stack
 make test-integration
 ```
 
+`test-integration` now includes both repository-level and full app-path integration coverage against real Postgres and Redis.
+
 ## Run the server
 
 ```bash
