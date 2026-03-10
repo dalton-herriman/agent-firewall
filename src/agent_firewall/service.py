@@ -10,6 +10,7 @@ from agent_firewall.executor import ToolExecutor
 from agent_firewall.models.audit import AuditLogEntry
 from agent_firewall.models.config import AdapterConfig, ToolArgumentSpec
 from agent_firewall.models.tooling import ToolExecutionResult, ToolInvocationDecision, ToolInvocationRequest
+from agent_firewall.observability import get_observability
 from agent_firewall.policy import evaluate_policy
 from agent_firewall.repositories.base import AdapterRepository, AuditLogRepository, PolicyRepository
 
@@ -30,61 +31,105 @@ class FirewallService:
         self._adapter_repository = adapter_repository
         self._rate_limiter = rate_limiter
         self._tool_executor = tool_executor
+        self._observability = get_observability()
 
     async def evaluate(self, request: ToolInvocationRequest) -> ToolInvocationDecision:
-        adapter = await self._adapter_repository.get_by_tool_name(request.tenant_id, request.tool_name)
-        if adapter is None:
-            decision = ToolInvocationDecision(allowed=False, reason="unknown tool")
-            await self._audit(request, decision)
-            return decision
+        with self._observability.tracer.start_as_current_span("agent_firewall.evaluate") as span:
+            span.set_attribute("agent_firewall.tenant_id", request.tenant_id)
+            span.set_attribute("agent_firewall.tool_name", request.tool_name)
+            adapter = await self._adapter_repository.get_by_tool_name(request.tenant_id, request.tool_name)
+            if adapter is None:
+                decision = ToolInvocationDecision(allowed=False, reason="unknown tool")
+                await self._audit(request, decision)
+                self._observability.record_evaluation(
+                    tenant_id=request.tenant_id,
+                    tool_name=request.tool_name,
+                    allowed=False,
+                    reason=decision.reason,
+                )
+                return decision
 
-        try:
-            ToolInvocationRequest.model_validate(request)
-        except ValidationError as exc:
-            decision = ToolInvocationDecision(allowed=False, reason=f"invalid request: {exc.errors()[0]['msg']}")
-            await self._audit(request, decision)
-            return decision
+            try:
+                ToolInvocationRequest.model_validate(request)
+            except ValidationError as exc:
+                decision = ToolInvocationDecision(allowed=False, reason=f"invalid request: {exc.errors()[0]['msg']}")
+                await self._audit(request, decision)
+                self._observability.record_evaluation(
+                    tenant_id=request.tenant_id,
+                    tool_name=request.tool_name,
+                    allowed=False,
+                    reason=decision.reason,
+                )
+                return decision
 
-        tool_arg_error = self._validate_tool_args(adapter, request.tool_args)
-        if tool_arg_error:
-            decision = ToolInvocationDecision(allowed=False, reason=tool_arg_error, action=request.action)
-            await self._audit(request, decision)
-            return decision
+            tool_arg_error = self._validate_tool_args(adapter, request.tool_args)
+            if tool_arg_error:
+                decision = ToolInvocationDecision(allowed=False, reason=tool_arg_error, action=request.action)
+                await self._audit(request, decision)
+                self._observability.record_evaluation(
+                    tenant_id=request.tenant_id,
+                    tool_name=request.tool_name,
+                    allowed=False,
+                    reason=decision.reason,
+                )
+                return decision
 
-        allowed_by_rate_limit, remaining = await self._rate_limiter.check(
-            key=f"ratelimit:{request.agent_id}:{request.tool_name}",
-            limit=self._settings.rate_limit_max_requests,
-            window_seconds=self._settings.rate_limit_window_seconds,
-        )
-        if not allowed_by_rate_limit:
-            decision = ToolInvocationDecision(allowed=False, reason="rate limit exceeded", rate_limit_remaining=remaining)
-            await self._audit(request, decision)
-            return decision
+            allowed_by_rate_limit, remaining = await self._rate_limiter.check(
+                key=f"ratelimit:{request.tenant_id}:{request.agent_id}:{request.tool_name}",
+                limit=self._settings.rate_limit_max_requests,
+                window_seconds=self._settings.rate_limit_window_seconds,
+            )
+            if not allowed_by_rate_limit:
+                decision = ToolInvocationDecision(allowed=False, reason="rate limit exceeded", rate_limit_remaining=remaining)
+                await self._audit(request, decision)
+                self._observability.record_rate_limit(tenant_id=request.tenant_id, tool_name=request.tool_name)
+                self._observability.record_evaluation(
+                    tenant_id=request.tenant_id,
+                    tool_name=request.tool_name,
+                    allowed=False,
+                    reason=decision.reason,
+                )
+                return decision
 
-        rules = await self._policy_repository.list_rules_for_agent(request.tenant_id, request.agent_id)
-        allowed, matched_rule, reason = evaluate_policy(request, rules, self._settings.default_policy_mode)
-        decision = ToolInvocationDecision(
-            allowed=allowed,
-            reason=reason,
-            action=request.action,
-            matched_policy_id=str(matched_rule.id) if matched_rule else None,
-            rate_limit_remaining=remaining,
-        )
-        await self._audit(request, decision)
-        return decision
+            rules = await self._policy_repository.list_rules_for_agent(request.tenant_id, request.agent_id)
+            allowed, matched_rule, reason = evaluate_policy(request, rules, self._settings.default_policy_mode)
+            decision = ToolInvocationDecision(
+                allowed=allowed,
+                reason=reason,
+                action=request.action,
+                matched_policy_id=str(matched_rule.id) if matched_rule else None,
+                rate_limit_remaining=remaining,
+            )
+            await self._audit(request, decision)
+            self._observability.record_evaluation(
+                tenant_id=request.tenant_id,
+                tool_name=request.tool_name,
+                allowed=decision.allowed,
+                reason=decision.reason,
+            )
+            return decision
 
     async def execute(self, request: ToolInvocationRequest) -> ToolExecutionResult:
-        adapter = await self._adapter_repository.get_by_tool_name(request.tenant_id, request.tool_name)
-        if adapter is None:
-            raise LookupError("unknown tool")
-        decision = await self.evaluate(request)
-        if not decision.allowed:
-            raise PermissionError(decision.reason)
-        if not self._settings.server_broker_enabled:
-            raise RuntimeError("tool broker execution disabled")
-        if self._tool_executor is None:
-            raise RuntimeError("tool executor is not configured")
-        return await self._tool_executor.execute(adapter=adapter, request=request, decision=decision)
+        with self._observability.tracer.start_as_current_span("agent_firewall.execute") as span:
+            span.set_attribute("agent_firewall.tenant_id", request.tenant_id)
+            span.set_attribute("agent_firewall.tool_name", request.tool_name)
+            adapter = await self._adapter_repository.get_by_tool_name(request.tenant_id, request.tool_name)
+            if adapter is None:
+                raise LookupError("unknown tool")
+            decision = await self.evaluate(request)
+            if not decision.allowed:
+                raise PermissionError(decision.reason)
+            if not self._settings.server_broker_enabled:
+                raise RuntimeError("tool broker execution disabled")
+            if self._tool_executor is None:
+                raise RuntimeError("tool executor is not configured")
+            result = await self._tool_executor.execute(adapter=adapter, request=request, decision=decision)
+            self._observability.record_execution(
+                tenant_id=request.tenant_id,
+                tool_name=request.tool_name,
+                status=result.status,
+            )
+            return result
 
     def _validate_tool_args(self, adapter: AdapterConfig, tool_args: dict[str, Any]) -> str | None:
         schema = {spec.name: spec for spec in adapter.input_schema}

@@ -42,4 +42,5 @@ For real backing service validation, use `make verify-stack` and `make test-inte
 - [Policy semantics](docs/policies.md)
 - [Execution boundary](docs/execution.md)
 - [Server security](docs/security.md)
+- [Observability](docs/observability.md)
 - [Server API](docs/server.md)
