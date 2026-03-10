@@ -25,8 +25,10 @@ Agent Firewall is designed as two deliverables built on the same core policy eng
 1. Create a local virtual environment with `python3 -m venv .venv`.
 2. Activate it with `source .venv/bin/activate`.
 3. Install the package in editable mode with the `dev` extras.
-4. Embed `AgentFirewallSDK` in your agent runtime and wrap tool calls with `tool_guard` or `ToolHook`.
-5. Optionally run `uvicorn agent_firewall.server:create_server_app --factory --reload` for a centralized service.
+4. Start local dependencies with `docker compose up -d postgres redis`.
+5. Apply the initial schema with `alembic upgrade head`.
+6. Embed `AgentFirewallSDK` in your agent runtime and wrap tool calls with `tool_guard` or `ToolHook`.
+7. Optionally run `uvicorn agent_firewall.server:create_server_app --factory --reload` for a centralized service.
 
 ## Docs
 

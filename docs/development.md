@@ -21,6 +21,18 @@ pip install -r requirements-dev.txt
 pip install -e .
 ```
 
+## Start local services
+
+```bash
+docker compose up -d postgres redis
+```
+
+## Run migrations
+
+```bash
+alembic upgrade head
+```
+
 ## Run tests
 
 ```bash
@@ -31,4 +43,14 @@ pytest -q
 
 ```bash
 uvicorn agent_firewall.server:create_server_app --factory --reload
+```
+
+## Make targets
+
+```bash
+make install
+make services-up
+make migrate-up
+make test
+make run
 ```
