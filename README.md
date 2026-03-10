@@ -30,6 +30,8 @@ Agent Firewall is designed as two deliverables built on the same core policy eng
 6. Embed `AgentFirewallSDK` in your agent runtime and wrap tool calls with `tool_guard` or `ToolHook`.
 7. Optionally run `uvicorn agent_firewall.server:create_server_app --factory --reload` for a centralized service.
 
+For real backing service validation, use `make verify-stack` and `make test-integration` after Postgres and Redis are running.
+
 ## Docs
 
 - [Architecture](docs/architecture.md)

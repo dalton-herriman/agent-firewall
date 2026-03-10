@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from agent_firewall.cache import InMemoryRateLimiter, RedisRateLimiter
 from agent_firewall.config import Settings
+from agent_firewall.health import DependencyHealth, check_dependencies
 from agent_firewall.management import ManagementService
 from agent_firewall.repositories.memory import (
     InMemoryAdapterRepository,
@@ -88,6 +89,9 @@ class Container:
 
     def management_service(self) -> ManagementService:
         return self._management_service
+
+    async def dependency_health(self) -> DependencyHealth:
+        return await check_dependencies(self.engine, self.redis)
 
     async def shutdown(self) -> None:
         if self.redis is not None:

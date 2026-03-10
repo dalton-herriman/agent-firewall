@@ -4,7 +4,7 @@ PYTEST := .venv/bin/pytest
 ALEMBIC := .venv/bin/alembic
 UVICORN := .venv/bin/uvicorn
 
-.PHONY: venv install test run migrate-up migrate-down services-up services-down
+.PHONY: venv install test test-integration verify-stack run migrate-up migrate-down services-up services-down
 
 venv:
 	python3 -m venv .venv
@@ -15,6 +15,12 @@ install:
 
 test:
 	$(PYTEST) -q
+
+test-integration:
+	$(PYTEST) -q -m integration
+
+verify-stack:
+	$(PYTHON) scripts/verify_stack.py
 
 run:
 	$(UVICORN) agent_firewall.server:create_server_app --factory --reload
@@ -30,4 +36,3 @@ services-up:
 
 services-down:
 	docker compose down
-

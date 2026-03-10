@@ -48,6 +48,11 @@ def create_app(settings: Settings | None = None, container: Container | None = N
     async def healthcheck() -> dict[str, str]:
         return {"status": "ok", "service": settings.app_name}
 
+    @app.get(f"{settings.api_prefix}/health/dependencies")
+    async def dependency_health(container: Container = Depends(get_container)) -> dict[str, bool]:
+        health = await container.dependency_health()
+        return {"postgres": health.postgres, "redis": health.redis}
+
     @app.post(f"{settings.api_prefix}/tool-invocations/evaluate", response_model=ToolInvocationDecision)
     async def evaluate_tool_invocation(
         payload: ToolInvocationRequest,
