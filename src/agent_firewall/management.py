@@ -27,8 +27,8 @@ class ManagementService:
         self._adapter_repository = adapter_repository
         self._runtime_config_repository = runtime_config_repository
 
-    async def list_policies(self) -> Sequence[PolicyRule]:
-        return await self._policy_repository.list_policies()
+    async def list_policies(self, tenant_id: str) -> Sequence[PolicyRule]:
+        return await self._policy_repository.list_policies(tenant_id)
 
     async def get_policy(self, policy_id: str) -> PolicyRule | None:
         return await self._policy_repository.get_policy(policy_id)
@@ -40,35 +40,48 @@ class ManagementService:
         return await self._policy_repository.upsert_policy(policy)
 
     async def validate_policy(self, policy: PolicyRule) -> PolicyValidationResult:
-        existing = await self._policy_repository.list_policies()
+        existing = await self._policy_repository.list_policies(policy.tenant_id)
         return validate_policy_candidate(policy, existing)
 
-    async def delete_policy(self, policy_id: str) -> bool:
-        return await self._policy_repository.delete_policy(policy_id)
+    async def delete_policy(self, tenant_id: str, policy_id: str) -> bool:
+        return await self._policy_repository.delete_policy(tenant_id, policy_id)
 
-    async def list_adapters(self) -> Sequence[AdapterConfig]:
-        return await self._adapter_repository.list_adapters()
+    async def list_adapters(self, tenant_id: str) -> Sequence[AdapterConfig]:
+        return await self._adapter_repository.list_adapters(tenant_id)
 
-    async def get_adapter(self, tool_name: str) -> AdapterConfig | None:
-        return await self._adapter_repository.get_by_tool_name(tool_name)
+    async def get_adapter(self, tenant_id: str, tool_name: str) -> AdapterConfig | None:
+        return await self._adapter_repository.get_by_tool_name(tenant_id, tool_name)
 
     async def upsert_adapter(self, adapter: AdapterConfig) -> AdapterConfig:
         return await self._adapter_repository.upsert_adapter(adapter)
 
-    async def delete_adapter(self, tool_name: str) -> bool:
-        return await self._adapter_repository.delete_adapter(tool_name)
+    async def delete_adapter(self, tenant_id: str, tool_name: str) -> bool:
+        return await self._adapter_repository.delete_adapter(tenant_id, tool_name)
 
-    async def list_configs(self) -> Sequence[RuntimeConfig]:
-        return await self._runtime_config_repository.list_configs()
+    async def list_configs(self, tenant_id: str) -> Sequence[RuntimeConfig]:
+        return await self._runtime_config_repository.list_configs(tenant_id)
 
-    async def get_config(self, key: str) -> RuntimeConfig | None:
-        return await self._runtime_config_repository.get(key)
+    async def get_config(self, tenant_id: str, key: str) -> RuntimeConfig | None:
+        return await self._runtime_config_repository.get(tenant_id, key)
 
     async def upsert_config(self, config: RuntimeConfig) -> RuntimeConfig:
         return await self._runtime_config_repository.upsert_config(config)
 
-    async def delete_config(self, key: str) -> bool:
-        return await self._runtime_config_repository.delete_config(key)
+    async def delete_config(self, tenant_id: str, key: str) -> bool:
+        return await self._runtime_config_repository.delete_config(tenant_id, key)
 
     async def list_audit_logs(self, query: AuditLogQuery) -> Sequence[AuditLogEntry]:
         return await self._audit_log_repository.list_entries(query)
+
+    async def record_management_event(self, *, tenant_id: str, actor_id: str, action: str, payload: dict) -> None:
+        await self._audit_log_repository.record(
+            AuditLogEntry(
+                tenant_id=tenant_id,
+                actor_id=actor_id,
+                agent_id=actor_id,
+                tool_name="control-plane",
+                decision="allow",
+                reason=action,
+                request_payload=payload,
+            )
+        )

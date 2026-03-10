@@ -40,6 +40,7 @@ class HttpToolExecutor:
             response.raise_for_status()
             payload = response.json() if response.content else {}
         return ToolExecutionResult(
+            tenant_id=request.tenant_id,
             tool_name=request.tool_name,
             status="executed",
             output=payload,

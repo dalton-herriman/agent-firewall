@@ -15,6 +15,7 @@ def upgrade() -> None:
         "policy_rules",
         sa.Column("id", sa.String(length=36), nullable=False),
         sa.Column("agent_id", sa.String(length=200), nullable=False),
+        sa.Column("tenant_id", sa.String(length=200), nullable=False, server_default="default"),
         sa.Column("name", sa.String(length=200), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("action", sa.String(length=10), nullable=False),
@@ -28,11 +29,14 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_policy_rules_agent_id", "policy_rules", ["agent_id"])
+    op.create_index("ix_policy_rules_tenant_id", "policy_rules", ["tenant_id"])
     op.create_index("ix_policy_rules_tool", "policy_rules", ["tool"])
 
     op.create_table(
         "audit_logs",
         sa.Column("id", sa.String(length=36), nullable=False),
+        sa.Column("tenant_id", sa.String(length=200), nullable=False, server_default="default"),
+        sa.Column("actor_id", sa.String(length=200), nullable=True),
         sa.Column("agent_id", sa.String(length=200), nullable=False),
         sa.Column("tool_name", sa.String(length=200), nullable=False),
         sa.Column("decision", sa.String(length=10), nullable=False),
@@ -43,33 +47,38 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_audit_logs_agent_id", "audit_logs", ["agent_id"])
+    op.create_index("ix_audit_logs_tenant_id", "audit_logs", ["tenant_id"])
     op.create_index("ix_audit_logs_tool_name", "audit_logs", ["tool_name"])
     op.create_index("ix_audit_logs_created_at", "audit_logs", ["created_at"])
 
     op.create_table(
         "adapter_configs",
+        sa.Column("tenant_id", sa.String(length=200), nullable=False),
         sa.Column("tool_name", sa.String(length=200), nullable=False),
         sa.Column("target_uri", sa.Text(), nullable=False),
         sa.Column("timeout_seconds", sa.Integer(), nullable=False, server_default="10"),
         sa.Column("schema", sa.JSON(), nullable=False, server_default="[]"),
-        sa.PrimaryKeyConstraint("tool_name"),
+        sa.PrimaryKeyConstraint("tenant_id", "tool_name"),
     )
 
     op.create_table(
         "runtime_configs",
+        sa.Column("tenant_id", sa.String(length=200), nullable=False),
         sa.Column("key", sa.String(length=200), nullable=False),
         sa.Column("value", sa.JSON(), nullable=False, server_default="{}"),
-        sa.PrimaryKeyConstraint("key"),
+        sa.PrimaryKeyConstraint("tenant_id", "key"),
     )
 
 
 def downgrade() -> None:
     op.drop_table("runtime_configs")
     op.drop_table("adapter_configs")
+    op.drop_index("ix_audit_logs_tenant_id", table_name="audit_logs")
     op.drop_index("ix_audit_logs_created_at", table_name="audit_logs")
     op.drop_index("ix_audit_logs_tool_name", table_name="audit_logs")
     op.drop_index("ix_audit_logs_agent_id", table_name="audit_logs")
     op.drop_table("audit_logs")
+    op.drop_index("ix_policy_rules_tenant_id", table_name="policy_rules")
     op.drop_index("ix_policy_rules_tool", table_name="policy_rules")
     op.drop_index("ix_policy_rules_agent_id", table_name="policy_rules")
     op.drop_table("policy_rules")

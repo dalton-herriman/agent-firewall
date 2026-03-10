@@ -32,7 +32,7 @@ class FirewallService:
         self._tool_executor = tool_executor
 
     async def evaluate(self, request: ToolInvocationRequest) -> ToolInvocationDecision:
-        adapter = await self._adapter_repository.get_by_tool_name(request.tool_name)
+        adapter = await self._adapter_repository.get_by_tool_name(request.tenant_id, request.tool_name)
         if adapter is None:
             decision = ToolInvocationDecision(allowed=False, reason="unknown tool")
             await self._audit(request, decision)
@@ -61,7 +61,7 @@ class FirewallService:
             await self._audit(request, decision)
             return decision
 
-        rules = await self._policy_repository.list_rules_for_agent(request.agent_id)
+        rules = await self._policy_repository.list_rules_for_agent(request.tenant_id, request.agent_id)
         allowed, matched_rule, reason = evaluate_policy(request, rules, self._settings.default_policy_mode)
         decision = ToolInvocationDecision(
             allowed=allowed,
@@ -74,7 +74,7 @@ class FirewallService:
         return decision
 
     async def execute(self, request: ToolInvocationRequest) -> ToolExecutionResult:
-        adapter = await self._adapter_repository.get_by_tool_name(request.tool_name)
+        adapter = await self._adapter_repository.get_by_tool_name(request.tenant_id, request.tool_name)
         if adapter is None:
             raise LookupError("unknown tool")
         decision = await self.evaluate(request)
@@ -120,6 +120,7 @@ class FirewallService:
     async def _audit(self, request: ToolInvocationRequest, decision: ToolInvocationDecision) -> None:
         await self._audit_log_repository.record(
             AuditLogEntry(
+                tenant_id=request.tenant_id,
                 agent_id=request.agent_id,
                 tool_name=request.tool_name,
                 decision="allow" if decision.allowed else "deny",

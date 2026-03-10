@@ -27,6 +27,7 @@ class PolicyRuleRow(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     agent_id: Mapped[str] = mapped_column(String(200), index=True)
+    tenant_id: Mapped[str] = mapped_column(String(200), index=True, default="default")
     name: Mapped[str] = mapped_column(String(200))
     description: Mapped[str | None] = mapped_column(Text(), nullable=True)
     effect: Mapped[str] = mapped_column("action", String(10))
@@ -43,6 +44,8 @@ class AuditLogRow(Base):
     __tablename__ = "audit_logs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(200), index=True, default="default")
+    actor_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
     agent_id: Mapped[str] = mapped_column(String(200), index=True)
     tool_name: Mapped[str] = mapped_column(String(200), index=True)
     decision: Mapped[str] = mapped_column(String(10))
@@ -55,6 +58,7 @@ class AuditLogRow(Base):
 class AdapterConfigRow(Base):
     __tablename__ = "adapter_configs"
 
+    tenant_id: Mapped[str] = mapped_column(String(200), primary_key=True)
     tool_name: Mapped[str] = mapped_column(String(200), primary_key=True)
     target_uri: Mapped[str] = mapped_column(Text())
     timeout_seconds: Mapped[int] = mapped_column(Integer, default=10)
@@ -64,6 +68,7 @@ class AdapterConfigRow(Base):
 class RuntimeConfigRow(Base):
     __tablename__ = "runtime_configs"
 
+    tenant_id: Mapped[str] = mapped_column(String(200), primary_key=True)
     key: Mapped[str] = mapped_column(String(200), primary_key=True)
     value: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
 
@@ -76,14 +81,19 @@ class PostgresPolicyRepository(PolicyRepository):
     def __init__(self, session_factory: async_sessionmaker) -> None:
         self._session_factory = session_factory
 
-    async def list_rules_for_agent(self, agent_id: str) -> Sequence[PolicyRule]:
+    async def list_rules_for_agent(self, tenant_id: str, agent_id: str) -> Sequence[PolicyRule]:
         async with self._session_factory() as session:
             rows = await session.scalars(
-                select(PolicyRuleRow).where(PolicyRuleRow.agent_id == agent_id, PolicyRuleRow.enabled.is_(True))
+                select(PolicyRuleRow).where(
+                    PolicyRuleRow.tenant_id == tenant_id,
+                    PolicyRuleRow.agent_id == agent_id,
+                    PolicyRuleRow.enabled.is_(True),
+                )
             )
             return [
                 PolicyRule(
                     id=row.id,
+                    tenant_id=row.tenant_id,
                     name=row.name,
                     description=row.description,
                     effect=row.effect,
@@ -98,12 +108,15 @@ class PostgresPolicyRepository(PolicyRepository):
                 for row in rows
             ]
 
-    async def list_policies(self) -> Sequence[PolicyRule]:
+    async def list_policies(self, tenant_id: str) -> Sequence[PolicyRule]:
         async with self._session_factory() as session:
-            rows = await session.scalars(select(PolicyRuleRow).order_by(PolicyRuleRow.priority.asc(), PolicyRuleRow.name.asc()))
+            rows = await session.scalars(
+                select(PolicyRuleRow).where(PolicyRuleRow.tenant_id == tenant_id).order_by(PolicyRuleRow.priority.asc(), PolicyRuleRow.name.asc())
+            )
             return [
                 PolicyRule(
                     id=row.id,
+                    tenant_id=row.tenant_id,
                     name=row.name,
                     description=row.description,
                     effect=row.effect,
@@ -125,6 +138,7 @@ class PostgresPolicyRepository(PolicyRepository):
                 return None
             return PolicyRule(
                 id=row.id,
+                tenant_id=row.tenant_id,
                 name=row.name,
                 description=row.description,
                 effect=row.effect,
@@ -142,6 +156,7 @@ class PostgresPolicyRepository(PolicyRepository):
             row = PolicyRuleRow(
                 id=str(policy.id),
                 agent_id=policy.subject.agent_ids[0] if policy.subject.agent_ids else "*",
+                tenant_id=policy.tenant_id,
                 name=policy.name,
                 description=policy.description,
                 effect=policy.effect,
@@ -157,9 +172,11 @@ class PostgresPolicyRepository(PolicyRepository):
             await session.commit()
         return policy
 
-    async def delete_policy(self, policy_id: str) -> bool:
+    async def delete_policy(self, tenant_id: str, policy_id: str) -> bool:
         async with self._session_factory() as session:
-            result = await session.execute(delete(PolicyRuleRow).where(PolicyRuleRow.id == policy_id))
+            result = await session.execute(
+                delete(PolicyRuleRow).where(PolicyRuleRow.tenant_id == tenant_id, PolicyRuleRow.id == policy_id)
+            )
             await session.commit()
             return result.rowcount > 0
 
@@ -173,6 +190,8 @@ class PostgresAuditLogRepository(AuditLogRepository):
             session.add(
                 AuditLogRow(
                     id=str(entry.id),
+                    tenant_id=entry.tenant_id,
+                    actor_id=entry.actor_id,
                     agent_id=entry.agent_id,
                     tool_name=entry.tool_name,
                     decision=entry.decision,
@@ -187,6 +206,8 @@ class PostgresAuditLogRepository(AuditLogRepository):
     async def list_entries(self, query: AuditLogQuery) -> Sequence[AuditLogEntry]:
         async with self._session_factory() as session:
             statement = select(AuditLogRow).order_by(desc(AuditLogRow.created_at)).limit(query.limit)
+            if query.tenant_id:
+                statement = statement.where(AuditLogRow.tenant_id == query.tenant_id)
             if query.agent_id:
                 statement = statement.where(AuditLogRow.agent_id == query.agent_id)
             if query.tool_name:
@@ -195,6 +216,8 @@ class PostgresAuditLogRepository(AuditLogRepository):
             return [
                 AuditLogEntry(
                     id=row.id,
+                    tenant_id=row.tenant_id,
+                    actor_id=row.actor_id,
                     agent_id=row.agent_id,
                     tool_name=row.tool_name,
                     decision=row.decision,
@@ -211,23 +234,27 @@ class PostgresAdapterRepository(AdapterRepository):
     def __init__(self, session_factory: async_sessionmaker) -> None:
         self._session_factory = session_factory
 
-    async def get_by_tool_name(self, tool_name: str) -> AdapterConfig | None:
+    async def get_by_tool_name(self, tenant_id: str, tool_name: str) -> AdapterConfig | None:
         async with self._session_factory() as session:
-            row = await session.get(AdapterConfigRow, tool_name)
+            row = await session.get(AdapterConfigRow, {"tenant_id": tenant_id, "tool_name": tool_name})
             if row is None:
                 return None
             return AdapterConfig(
+                tenant_id=row.tenant_id,
                 tool_name=row.tool_name,
                 target_uri=row.target_uri,
                 timeout_seconds=row.timeout_seconds,
                 schema=[ToolArgumentSpec.model_validate(item) for item in row.input_schema],
             )
 
-    async def list_adapters(self) -> Sequence[AdapterConfig]:
+    async def list_adapters(self, tenant_id: str) -> Sequence[AdapterConfig]:
         async with self._session_factory() as session:
-            rows = await session.scalars(select(AdapterConfigRow).order_by(AdapterConfigRow.tool_name.asc()))
+            rows = await session.scalars(
+                select(AdapterConfigRow).where(AdapterConfigRow.tenant_id == tenant_id).order_by(AdapterConfigRow.tool_name.asc())
+            )
             return [
                 AdapterConfig(
+                    tenant_id=row.tenant_id,
                     tool_name=row.tool_name,
                     target_uri=row.target_uri,
                     timeout_seconds=row.timeout_seconds,
@@ -239,6 +266,7 @@ class PostgresAdapterRepository(AdapterRepository):
     async def upsert_adapter(self, adapter: AdapterConfig) -> AdapterConfig:
         async with self._session_factory() as session:
             row = AdapterConfigRow(
+                tenant_id=adapter.tenant_id,
                 tool_name=adapter.tool_name,
                 target_uri=adapter.target_uri,
                 timeout_seconds=adapter.timeout_seconds,
@@ -248,9 +276,11 @@ class PostgresAdapterRepository(AdapterRepository):
             await session.commit()
         return adapter
 
-    async def delete_adapter(self, tool_name: str) -> bool:
+    async def delete_adapter(self, tenant_id: str, tool_name: str) -> bool:
         async with self._session_factory() as session:
-            result = await session.execute(delete(AdapterConfigRow).where(AdapterConfigRow.tool_name == tool_name))
+            result = await session.execute(
+                delete(AdapterConfigRow).where(AdapterConfigRow.tenant_id == tenant_id, AdapterConfigRow.tool_name == tool_name)
+            )
             await session.commit()
             return result.rowcount > 0
 
@@ -259,26 +289,28 @@ class PostgresRuntimeConfigRepository(RuntimeConfigRepository):
     def __init__(self, session_factory: async_sessionmaker) -> None:
         self._session_factory = session_factory
 
-    async def get(self, key: str) -> RuntimeConfig | None:
+    async def get(self, tenant_id: str, key: str) -> RuntimeConfig | None:
         async with self._session_factory() as session:
-            row = await session.get(RuntimeConfigRow, key)
+            row = await session.get(RuntimeConfigRow, {"tenant_id": tenant_id, "key": key})
             if row is None:
                 return None
-            return RuntimeConfig(key=row.key, value=row.value)
+            return RuntimeConfig(tenant_id=row.tenant_id, key=row.key, value=row.value)
 
-    async def list_configs(self) -> Sequence[RuntimeConfig]:
+    async def list_configs(self, tenant_id: str) -> Sequence[RuntimeConfig]:
         async with self._session_factory() as session:
-            rows = await session.scalars(select(RuntimeConfigRow).order_by(RuntimeConfigRow.key.asc()))
-            return [RuntimeConfig(key=row.key, value=row.value) for row in rows]
+            rows = await session.scalars(select(RuntimeConfigRow).where(RuntimeConfigRow.tenant_id == tenant_id).order_by(RuntimeConfigRow.key.asc()))
+            return [RuntimeConfig(tenant_id=row.tenant_id, key=row.key, value=row.value) for row in rows]
 
     async def upsert_config(self, config: RuntimeConfig) -> RuntimeConfig:
         async with self._session_factory() as session:
-            await session.merge(RuntimeConfigRow(key=config.key, value=config.value))
+            await session.merge(RuntimeConfigRow(tenant_id=config.tenant_id, key=config.key, value=config.value))
             await session.commit()
         return config
 
-    async def delete_config(self, key: str) -> bool:
+    async def delete_config(self, tenant_id: str, key: str) -> bool:
         async with self._session_factory() as session:
-            result = await session.execute(delete(RuntimeConfigRow).where(RuntimeConfigRow.key == key))
+            result = await session.execute(
+                delete(RuntimeConfigRow).where(RuntimeConfigRow.tenant_id == tenant_id, RuntimeConfigRow.key == key)
+            )
             await session.commit()
             return result.rowcount > 0

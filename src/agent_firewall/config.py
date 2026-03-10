@@ -1,7 +1,14 @@
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class ApiKeyConfig(BaseModel):
+    key: str
+    actor_id: str
+    tenant_id: str
+    scopes: list[str] = Field(default_factory=list)
 
 
 class Settings(BaseSettings):
@@ -27,6 +34,8 @@ class Settings(BaseSettings):
     rate_limit_max_requests: int = 30
     default_policy_mode: str = "deny"
     server_broker_enabled: bool = True
+    auth_enabled: bool = False
+    api_keys: list[ApiKeyConfig] = Field(default_factory=list)
 
 
 @lru_cache

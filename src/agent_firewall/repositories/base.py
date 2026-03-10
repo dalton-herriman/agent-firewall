@@ -9,10 +9,10 @@ from agent_firewall.models.policy import PolicyRule
 
 
 class PolicyRepository(Protocol):
-    async def list_rules_for_agent(self, agent_id: str) -> Sequence[PolicyRule]:
+    async def list_rules_for_agent(self, tenant_id: str, agent_id: str) -> Sequence[PolicyRule]:
         ...
 
-    async def list_policies(self) -> Sequence[PolicyRule]:
+    async def list_policies(self, tenant_id: str) -> Sequence[PolicyRule]:
         ...
 
     async def get_policy(self, policy_id: str) -> PolicyRule | None:
@@ -21,7 +21,7 @@ class PolicyRepository(Protocol):
     async def upsert_policy(self, policy: PolicyRule) -> PolicyRule:
         ...
 
-    async def delete_policy(self, policy_id: str) -> bool:
+    async def delete_policy(self, tenant_id: str, policy_id: str) -> bool:
         ...
 
 
@@ -34,28 +34,28 @@ class AuditLogRepository(Protocol):
 
 
 class AdapterRepository(Protocol):
-    async def get_by_tool_name(self, tool_name: str) -> AdapterConfig | None:
+    async def get_by_tool_name(self, tenant_id: str, tool_name: str) -> AdapterConfig | None:
         ...
 
-    async def list_adapters(self) -> Sequence[AdapterConfig]:
+    async def list_adapters(self, tenant_id: str) -> Sequence[AdapterConfig]:
         ...
 
     async def upsert_adapter(self, adapter: AdapterConfig) -> AdapterConfig:
         ...
 
-    async def delete_adapter(self, tool_name: str) -> bool:
+    async def delete_adapter(self, tenant_id: str, tool_name: str) -> bool:
         ...
 
 
 class RuntimeConfigRepository(Protocol):
-    async def get(self, key: str) -> RuntimeConfig | None:
+    async def get(self, tenant_id: str, key: str) -> RuntimeConfig | None:
         ...
 
-    async def list_configs(self) -> Sequence[RuntimeConfig]:
+    async def list_configs(self, tenant_id: str) -> Sequence[RuntimeConfig]:
         ...
 
     async def upsert_config(self, config: RuntimeConfig) -> RuntimeConfig:
         ...
 
-    async def delete_config(self, key: str) -> bool:
+    async def delete_config(self, tenant_id: str, key: str) -> bool:
         ...

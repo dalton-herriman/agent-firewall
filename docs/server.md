@@ -36,3 +36,5 @@ The optional FastAPI service exposes the shared policy engine over HTTP.
 
 - `GET /v1/audit-logs`
   - supports `agent_id`, `tool_name`, and `limit` query parameters
+
+With auth enabled, all `/v1/*` endpoints require an API key and are restricted to the caller's tenant.

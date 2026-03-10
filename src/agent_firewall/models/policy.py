@@ -39,6 +39,7 @@ class PolicyRule(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     id: UUID = Field(default_factory=new_id)
+    tenant_id: str = Field(default="default", min_length=1, max_length=200)
     name: str = Field(min_length=1, max_length=200)
     description: str | None = None
     effect: Literal["allow", "deny"] = Field(alias="action", serialization_alias="action")

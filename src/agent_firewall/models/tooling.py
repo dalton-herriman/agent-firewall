@@ -16,6 +16,7 @@ class ToolSchema(BaseModel):
 class ToolInvocationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    tenant_id: str = Field(default="default", min_length=1, max_length=200)
     agent_id: str = Field(min_length=1, max_length=200)
     action: str = Field(default="invoke", min_length=1, max_length=50)
     tool_name: str = Field(min_length=1, max_length=200)
@@ -44,6 +45,7 @@ class ToolInvocationDecision(BaseModel):
 class ToolExecutionResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    tenant_id: str = "default"
     tool_name: str
     status: str
     output: dict[str, Any] = Field(default_factory=dict)

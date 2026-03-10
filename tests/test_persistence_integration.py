@@ -55,6 +55,7 @@ async def test_postgres_and_redis_backed_container_path() -> None:
         management = container.management_service()
         await management.upsert_adapter(
             AdapterConfig(
+                tenant_id="default",
                 tool_name="weather.lookup",
                 target_uri="https://example.com/weather",
                 schema=[ToolArgumentSpec(name="city", value_type="string", required=True)],
@@ -62,6 +63,7 @@ async def test_postgres_and_redis_backed_container_path() -> None:
         )
         policy = await management.upsert_policy(
             PolicyRule(
+                tenant_id="default",
                 name="allow chicago weather",
                 action="allow",
                 subject=PolicySubject(agent_ids=["agent-int"]),
@@ -73,6 +75,7 @@ async def test_postgres_and_redis_backed_container_path() -> None:
 
         decision = await container.firewall_service().evaluate(
             ToolInvocationRequest(
+                tenant_id="default",
                 agent_id="agent-int",
                 tool_name="weather.lookup",
                 tool_args={"city": "Chicago"},

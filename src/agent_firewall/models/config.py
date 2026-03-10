@@ -18,6 +18,7 @@ class ToolArgumentSpec(BaseModel):
 class AdapterConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
+    tenant_id: str = Field(default="default", min_length=1, max_length=200)
     tool_name: str = Field(min_length=1, max_length=200)
     target_uri: str = Field(min_length=1)
     timeout_seconds: int = Field(default=10, ge=1, le=300)
@@ -27,5 +28,6 @@ class AdapterConfig(BaseModel):
 class RuntimeConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    tenant_id: str = Field(default="default", min_length=1, max_length=200)
     key: str = Field(min_length=1, max_length=200)
     value: dict[str, Any] = Field(default_factory=dict)
