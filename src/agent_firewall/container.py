@@ -21,6 +21,7 @@ from agent_firewall.repositories.postgres import (
     PostgresRuntimeConfigRepository,
     create_engine,
 )
+from agent_firewall.reliability import ReliabilityState
 from agent_firewall.service import FirewallService
 
 
@@ -85,7 +86,7 @@ class Container:
             adapter_repository=PostgresAdapterRepository(session_factory),
             runtime_config_repository=PostgresRuntimeConfigRepository(session_factory),
             rate_limiter=RedisRateLimiter(redis),
-            tool_executor=HttpToolExecutor(),
+            tool_executor=HttpToolExecutor(settings=settings, reliability_state=ReliabilityState()),
             engine=engine,
             redis=redis,
         )

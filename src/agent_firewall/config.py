@@ -11,6 +11,13 @@ class ApiKeyConfig(BaseModel):
     scopes: list[str] = Field(default_factory=list)
 
 
+class ExecutionConfig(BaseModel):
+    max_retries: int = 2
+    initial_backoff_seconds: float = 0.1
+    circuit_breaker_threshold: int = 3
+    circuit_breaker_reset_seconds: int = 30
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="AGENT_FIREWALL_",
@@ -36,6 +43,7 @@ class Settings(BaseSettings):
     server_broker_enabled: bool = True
     auth_enabled: bool = False
     api_keys: list[ApiKeyConfig] = Field(default_factory=list)
+    execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
 
 
 @lru_cache

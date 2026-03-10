@@ -48,5 +48,7 @@ class ToolExecutionResult(BaseModel):
     tenant_id: str = "default"
     tool_name: str
     status: str
+    attempts: int = 1
+    idempotency_key: str | None = None
     output: dict[str, Any] = Field(default_factory=dict)
     decision: ToolInvocationDecision
