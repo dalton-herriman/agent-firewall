@@ -35,3 +35,5 @@ Agent Firewall is designed as two deliverables built on the same core policy eng
 - [Architecture](docs/architecture.md)
 - [Adoption paths](docs/adoption.md)
 - [Development](docs/development.md)
+- [Integrations](docs/integrations.md)
+- [Server API](docs/server.md)

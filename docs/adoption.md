@@ -5,7 +5,7 @@
 Embed the SDK directly in the agent process.
 
 ```python
-from agent_firewall import AgentFirewallSDK, GuardedTool
+from agent_firewall import AgentFirewallSDK, GuardedTool, guard_langchain_tool, guard_openai_tool
 ```
 
 Use this path when:

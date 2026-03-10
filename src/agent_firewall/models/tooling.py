@@ -17,6 +17,7 @@ class ToolInvocationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     agent_id: str = Field(min_length=1, max_length=200)
+    action: str = Field(default="invoke", min_length=1, max_length=50)
     tool_name: str = Field(min_length=1, max_length=200)
     tool_args: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -35,6 +36,6 @@ class ToolInvocationDecision(BaseModel):
 
     allowed: bool
     reason: str
+    action: str = "invoke"
     matched_policy_id: str | None = None
     rate_limit_remaining: int | None = None
-

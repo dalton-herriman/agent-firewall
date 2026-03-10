@@ -16,6 +16,14 @@ class AuditLogEntry(BaseModel):
     tool_name: str = Field(min_length=1, max_length=200)
     decision: Literal["allow", "deny"]
     reason: str = Field(min_length=1, max_length=500)
+    matched_policy_id: str | None = None
     request_payload: dict[str, Any] = Field(default_factory=dict)
     created_at: str = Field(default_factory=lambda: utcnow().isoformat())
 
+
+class AuditLogQuery(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    agent_id: str | None = None
+    tool_name: str | None = None
+    limit: int = Field(default=100, ge=1, le=500)

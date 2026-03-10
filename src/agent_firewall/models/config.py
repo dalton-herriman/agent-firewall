@@ -1,17 +1,27 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class AdapterConfig(BaseModel):
+class ToolArgumentSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=200)
+    value_type: Literal["string", "integer", "number", "boolean", "object", "array"]
+    required: bool = False
+    description: str | None = None
+    allowed_values: list[Any] = Field(default_factory=list)
+
+
+class AdapterConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     tool_name: str = Field(min_length=1, max_length=200)
     target_uri: str = Field(min_length=1)
     timeout_seconds: int = Field(default=10, ge=1, le=300)
-    input_schema: dict[str, Any] = Field(default_factory=dict, alias="schema", serialization_alias="schema")
+    input_schema: list[ToolArgumentSpec] = Field(default_factory=list, alias="schema", serialization_alias="schema")
 
 
 class RuntimeConfig(BaseModel):

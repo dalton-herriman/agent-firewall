@@ -19,6 +19,8 @@ def upgrade() -> None:
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("action", sa.String(length=10), nullable=False),
         sa.Column("tool", sa.String(length=200), nullable=False),
+        sa.Column("subject_agent_ids", sa.JSON(), nullable=False, server_default="[]"),
+        sa.Column("invocation_action", sa.String(length=50), nullable=False, server_default="invoke"),
         sa.Column("conditions", sa.JSON(), nullable=False, server_default="[]"),
         sa.Column("priority", sa.Integer(), nullable=False, server_default="100"),
         sa.Column("enabled", sa.Boolean(), nullable=False, server_default=sa.true()),
@@ -34,6 +36,7 @@ def upgrade() -> None:
         sa.Column("tool_name", sa.String(length=200), nullable=False),
         sa.Column("decision", sa.String(length=10), nullable=False),
         sa.Column("reason", sa.String(length=500), nullable=False),
+        sa.Column("matched_policy_id", sa.String(length=36), nullable=True),
         sa.Column("request_payload", sa.JSON(), nullable=False, server_default="{}"),
         sa.Column("created_at", sa.String(length=64), nullable=False),
         sa.PrimaryKeyConstraint("id"),
@@ -69,4 +72,3 @@ def downgrade() -> None:
     op.drop_index("ix_policy_rules_tool", table_name="policy_rules")
     op.drop_index("ix_policy_rules_agent_id", table_name="policy_rules")
     op.drop_table("policy_rules")
-

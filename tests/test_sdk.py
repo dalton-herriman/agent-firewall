@@ -1,9 +1,11 @@
 import pytest
 
 from agent_firewall.cache import InMemoryRateLimiter
+from agent_firewall.integrations.langchain import guard_langchain_tool
+from agent_firewall.integrations.openai_agents import guard_openai_tool
 from agent_firewall.middleware import GuardedTool, tool_guard
-from agent_firewall.models.config import AdapterConfig
-from agent_firewall.models.policy import PolicyCondition, PolicyRule
+from agent_firewall.models.config import AdapterConfig, ToolArgumentSpec
+from agent_firewall.models.policy import PolicyCondition, PolicyRule, PolicyResource, PolicySubject
 from agent_firewall.repositories.memory import (
     InMemoryAdapterRepository,
     InMemoryAuditLogRepository,
@@ -22,7 +24,8 @@ def build_sdk() -> AgentFirewallSDK:
                 PolicyRule(
                     name="allow city",
                     action="allow",
-                    tool="weather.lookup",
+                    subject=PolicySubject(agent_ids=["agent-1"]),
+                    resource=PolicyResource(tool_names=["weather.lookup"]),
                     priority=1,
                     conditions=[PolicyCondition(field="tool_args.city", operator="eq", value="Chicago")],
                 )
@@ -30,7 +33,13 @@ def build_sdk() -> AgentFirewallSDK:
         ),
         audit_log_repository=InMemoryAuditLogRepository(),
         adapter_repository=InMemoryAdapterRepository(
-            [AdapterConfig(tool_name="weather.lookup", target_uri="https://example.com/weather")]
+            [
+                AdapterConfig(
+                    tool_name="weather.lookup",
+                    target_uri="https://example.com/weather",
+                    schema=[ToolArgumentSpec(name="city", value_type="string", required=True)],
+                )
+            ]
         ),
         rate_limiter=InMemoryRateLimiter(),
     )
@@ -82,3 +91,26 @@ async def test_tool_guard_decorator_wraps_async_tool() -> None:
     result = await run_tool("agent-1", "Chicago")
 
     assert result == "weather for Chicago"
+
+
+@pytest.mark.asyncio
+async def test_langchain_integration_wrapper() -> None:
+    sdk = build_sdk()
+
+    @guard_langchain_tool(sdk=sdk, agent_id="agent-1", tool_name="weather.lookup")
+    async def run(city: str) -> str:
+        return city.upper()
+
+    assert await run(city="Chicago") == "CHICAGO"
+
+
+@pytest.mark.asyncio
+async def test_openai_integration_wrapper_blocks_denied_call() -> None:
+    sdk = build_sdk()
+
+    @guard_openai_tool(sdk=sdk, agent_id="agent-1", tool_name="weather.lookup")
+    async def run(city: str) -> str:
+        return city.upper()
+
+    with pytest.raises(PermissionError):
+        await run(city="Austin")

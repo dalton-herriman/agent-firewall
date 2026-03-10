@@ -37,13 +37,19 @@ def _matches_condition(request: ToolInvocationRequest, condition: PolicyConditio
 
 def evaluate_policy(request: ToolInvocationRequest, rules: Sequence[PolicyRule], default_mode: str) -> tuple[bool, PolicyRule | None, str]:
     matching_rules = sorted(
-        [rule for rule in rules if rule.tool == request.tool_name and all(_matches_condition(request, c) for c in rule.conditions)],
+        [
+            rule
+            for rule in rules
+            if rule.operation == request.action
+            and rule.subject.matches(request.agent_id)
+            and rule.resource.matches(request.tool_name)
+            and all(_matches_condition(request, c) for c in rule.conditions)
+        ],
         key=lambda rule: rule.priority,
     )
     if matching_rules:
         matched = matching_rules[0]
-        return matched.action == "allow", matched, f"matched policy {matched.name}"
+        return matched.effect == "allow", matched, f"matched policy {matched.name}"
     if default_mode == "allow":
         return True, None, "default allow"
     return False, None, "default deny"
-

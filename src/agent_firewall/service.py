@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import ValidationError
 
 from agent_firewall.cache import RateLimiter
 from agent_firewall.config import Settings
 from agent_firewall.models.audit import AuditLogEntry
+from agent_firewall.models.config import AdapterConfig, ToolArgumentSpec
 from agent_firewall.models.tooling import ToolInvocationDecision, ToolInvocationRequest
 from agent_firewall.policy import evaluate_policy
 from agent_firewall.repositories.base import AdapterRepository, AuditLogRepository, PolicyRepository
@@ -39,6 +42,12 @@ class FirewallService:
             await self._audit(request, decision)
             return decision
 
+        tool_arg_error = self._validate_tool_args(adapter, request.tool_args)
+        if tool_arg_error:
+            decision = ToolInvocationDecision(allowed=False, reason=tool_arg_error, action=request.action)
+            await self._audit(request, decision)
+            return decision
+
         allowed_by_rate_limit, remaining = await self._rate_limiter.check(
             key=f"ratelimit:{request.agent_id}:{request.tool_name}",
             limit=self._settings.rate_limit_max_requests,
@@ -54,11 +63,43 @@ class FirewallService:
         decision = ToolInvocationDecision(
             allowed=allowed,
             reason=reason,
+            action=request.action,
             matched_policy_id=str(matched_rule.id) if matched_rule else None,
             rate_limit_remaining=remaining,
         )
         await self._audit(request, decision)
         return decision
+
+    def _validate_tool_args(self, adapter: AdapterConfig, tool_args: dict[str, Any]) -> str | None:
+        schema = {spec.name: spec for spec in adapter.input_schema}
+        for spec in schema.values():
+            if spec.required and spec.name not in tool_args:
+                return f"missing required tool arg: {spec.name}"
+        for name, value in tool_args.items():
+            spec = schema.get(name)
+            if spec is None:
+                continue
+            if not self._matches_type(spec, value):
+                return f"invalid tool arg type for {name}"
+            if spec.allowed_values and value not in spec.allowed_values:
+                return f"invalid tool arg value for {name}"
+        return None
+
+    def _matches_type(self, spec: ToolArgumentSpec, value: Any) -> bool:
+        match spec.value_type:
+            case "string":
+                return isinstance(value, str)
+            case "integer":
+                return isinstance(value, int) and not isinstance(value, bool)
+            case "number":
+                return isinstance(value, (int, float)) and not isinstance(value, bool)
+            case "boolean":
+                return isinstance(value, bool)
+            case "object":
+                return isinstance(value, dict)
+            case "array":
+                return isinstance(value, list)
+        return False
 
     async def _audit(self, request: ToolInvocationRequest, decision: ToolInvocationDecision) -> None:
         await self._audit_log_repository.record(
@@ -67,7 +108,7 @@ class FirewallService:
                 tool_name=request.tool_name,
                 decision="allow" if decision.allowed else "deny",
                 reason=decision.reason,
+                matched_policy_id=decision.matched_policy_id,
                 request_payload=request.model_dump(mode="json"),
             )
         )
-

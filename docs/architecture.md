@@ -39,6 +39,8 @@ The FastAPI server is optional. It uses the same engine and provides:
 
 - `GET /health`
 - `POST /v1/tool-invocations/evaluate`
+- CRUD APIs for policies, adapters, and runtime config
+- audit log query APIs
 
 The server is the path for teams that want shared policy storage, centralized logging, and a network boundary between agents and tools.
 
@@ -48,3 +50,13 @@ The server is the path for teams that want shared policy storage, centralized lo
 - Redis holds cache and rate-limit state
 - OpenTelemetry instrumentation is configured at app startup for traces and metrics
 
+## Policy semantics
+
+Policies are evaluated against:
+
+- `subject`: the agent identity invoking the tool
+- `resource`: tool name patterns
+- `action`: currently `invoke`
+- `conditions`: request field predicates over tool args and metadata
+
+Rules are sorted by ascending priority. The first matching rule decides the outcome. If nothing matches, the configured default mode applies.
