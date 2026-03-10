@@ -60,6 +60,8 @@ make test-integration
 
 `test-integration` now includes both repository-level and full app-path integration coverage against real Postgres and Redis.
 
+The GitHub Actions CI workflow runs the same integration marker against containerized Postgres and Redis, so changes in persistence or broker behavior are checked in CI instead of only locally.
+
 ## Run the server
 
 ```bash

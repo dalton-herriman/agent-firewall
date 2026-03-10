@@ -1,20 +1,29 @@
 from datetime import datetime
 from functools import lru_cache
+from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class ApiKeyConfig(BaseModel):
     key_id: str = Field(min_length=1, max_length=200)
-    key: str
+    key: str | None = None
+    key_sha256: str | None = None
     actor_id: str
     tenant_id: str
     roles: list[str] = Field(default_factory=list)
     scopes: list[str] = Field(default_factory=list)
     project_ids: list[str] = Field(default_factory=list)
-    status: str = "active"
+    status: Literal["active", "disabled"] = "active"
+    not_before: datetime | None = None
     expires_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def validate_secret_source(self) -> "ApiKeyConfig":
+        if bool(self.key) == bool(self.key_sha256):
+            raise ValueError("exactly one of key or key_sha256 must be set")
+        return self
 
 
 class ExecutionConfig(BaseModel):
@@ -50,6 +59,15 @@ class Settings(BaseSettings):
     auth_enabled: bool = False
     api_keys: list[ApiKeyConfig] = Field(default_factory=list)
     execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
+
+    @model_validator(mode="after")
+    def validate_api_key_ids(self) -> "Settings":
+        seen: set[str] = set()
+        for key in self.api_keys:
+            if key.key_id in seen:
+                raise ValueError(f"duplicate api key id: {key.key_id}")
+            seen.add(key.key_id)
+        return self
 
 
 @lru_cache

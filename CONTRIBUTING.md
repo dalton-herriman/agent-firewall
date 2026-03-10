@@ -22,3 +22,5 @@ If your change touches Postgres or Redis behavior, run:
 make verify-stack
 make test-integration
 ```
+
+The main CI workflow also runs `pytest -m integration` against GitHub Actions service containers for Postgres and Redis.

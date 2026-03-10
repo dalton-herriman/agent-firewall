@@ -1,4 +1,5 @@
 from agent_firewall.api.app import create_app
+from agent_firewall.auth import hash_api_key
 from agent_firewall.config import Settings
 from agent_firewall.integrations.langchain import guard_langchain_tool
 from agent_firewall.integrations.openai_agents import guard_openai_tool
@@ -12,6 +13,7 @@ __all__ = [
     "create_app",
     "guard_langchain_tool",
     "guard_openai_tool",
+    "hash_api_key",
     "sdk_hook",
     "tool_guard",
 ]

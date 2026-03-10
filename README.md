@@ -38,6 +38,8 @@ See [CHANGELOG.md](CHANGELOG.md) for release notes and [CONTRIBUTING.md](CONTRIB
 
 For real backing service validation, use `make verify-stack` and `make test-integration` after Postgres and Redis are running.
 
+GitHub Actions now runs both the unit suite and an integration job backed by real Postgres and Redis services.
+
 ## Positioning
 
 Use the SDK when you want the easiest OSS adoption path, the lowest operational overhead, and an in-process enforcement boundary around tools.
