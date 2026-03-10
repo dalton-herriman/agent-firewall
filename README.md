@@ -2,6 +2,8 @@
 
 Agent Firewall is designed as two deliverables built on the same core policy engine.
 
+See [CHANGELOG.md](CHANGELOG.md) for release notes and [CONTRIBUTING.md](CONTRIBUTING.md) for contributor workflow.
+
 ## Deliverables
 
 - `agent-firewall` Python SDK
