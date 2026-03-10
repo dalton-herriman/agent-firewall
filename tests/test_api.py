@@ -113,6 +113,7 @@ async def test_policy_adapter_and_runtime_config_crud() -> None:
                 "conditions": [],
                 "priority": 5,
                 "version": 1,
+                "status": "draft",
                 "enabled": True,
             },
             headers=headers,
@@ -129,11 +130,16 @@ async def test_policy_adapter_and_runtime_config_crud() -> None:
                 "conditions": [{"field": "tool_args.city", "operator": "eq", "value": "Chicago"}],
                 "priority": 1,
                 "version": 1,
+                "status": "draft",
                 "enabled": True,
             },
             headers=headers,
         )
         list_policies = await client.get("/v1/policies", headers=headers)
+        created_policy = create_policy.json()
+        publish_policy = await client.post(f"/v1/policies/{created_policy['id']}/publish", headers=headers)
+        revisions = await client.get(f"/v1/policies/{created_policy['id']}/revisions", headers=headers)
+        rollback_policy = await client.post(f"/v1/policies/{created_policy['id']}/rollback/1", headers=headers)
         create_adapter = await client.post(
             "/v1/adapters",
             json={
@@ -157,6 +163,12 @@ async def test_policy_adapter_and_runtime_config_crud() -> None:
     assert validate_conflicting_policy.json()["valid"] is False
     assert list_policies.status_code == 200
     assert len(list_policies.json()) == 2
+    assert publish_policy.status_code == 200
+    assert publish_policy.json()["status"] == "published"
+    assert revisions.status_code == 200
+    assert len(revisions.json()) >= 2
+    assert rollback_policy.status_code == 200
+    assert rollback_policy.json()["status"] == "draft"
     assert create_adapter.status_code == 201
     assert create_runtime_config.status_code == 201
     assert audit_logs.status_code == 200

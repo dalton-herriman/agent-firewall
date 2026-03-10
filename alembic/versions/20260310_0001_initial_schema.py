@@ -25,12 +25,25 @@ def upgrade() -> None:
         sa.Column("conditions", sa.JSON(), nullable=False, server_default="[]"),
         sa.Column("priority", sa.Integer(), nullable=False, server_default="100"),
         sa.Column("version", sa.Integer(), nullable=False, server_default="1"),
+        sa.Column("status", sa.String(length=20), nullable=False, server_default="draft"),
         sa.Column("enabled", sa.Boolean(), nullable=False, server_default=sa.true()),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_policy_rules_agent_id", "policy_rules", ["agent_id"])
     op.create_index("ix_policy_rules_tenant_id", "policy_rules", ["tenant_id"])
     op.create_index("ix_policy_rules_tool", "policy_rules", ["tool"])
+    op.create_table(
+        "policy_revisions",
+        sa.Column("id", sa.Integer(), nullable=False, autoincrement=True),
+        sa.Column("policy_id", sa.String(length=36), nullable=False),
+        sa.Column("tenant_id", sa.String(length=200), nullable=False, server_default="default"),
+        sa.Column("version", sa.Integer(), nullable=False, server_default="1"),
+        sa.Column("change_summary", sa.String(length=300), nullable=False),
+        sa.Column("snapshot", sa.JSON(), nullable=False, server_default="{}"),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index("ix_policy_revisions_policy_id", "policy_revisions", ["policy_id"])
+    op.create_index("ix_policy_revisions_tenant_id", "policy_revisions", ["tenant_id"])
 
     op.create_table(
         "audit_logs",
@@ -73,6 +86,9 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_table("runtime_configs")
     op.drop_table("adapter_configs")
+    op.drop_index("ix_policy_revisions_tenant_id", table_name="policy_revisions")
+    op.drop_index("ix_policy_revisions_policy_id", table_name="policy_revisions")
+    op.drop_table("policy_revisions")
     op.drop_index("ix_audit_logs_tenant_id", table_name="audit_logs")
     op.drop_index("ix_audit_logs_created_at", table_name="audit_logs")
     op.drop_index("ix_audit_logs_tool_name", table_name="audit_logs")

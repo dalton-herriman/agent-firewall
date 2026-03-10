@@ -49,6 +49,7 @@ class PolicyRule(BaseModel):
     conditions: list[PolicyCondition] = Field(default_factory=list)
     priority: int = Field(default=100, ge=0)
     version: int = Field(default=1, ge=1)
+    status: Literal["draft", "published", "archived"] = "draft"
     enabled: bool = True
 
     @model_validator(mode="before")
@@ -76,3 +77,13 @@ class PolicyValidationResult(BaseModel):
 
     valid: bool
     errors: list[str] = Field(default_factory=list)
+
+
+class PolicyRevision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    policy_id: UUID
+    tenant_id: str
+    version: int
+    snapshot: PolicyRule
+    change_summary: str = Field(min_length=1, max_length=300)

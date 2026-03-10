@@ -10,7 +10,7 @@ from agent_firewall.container import Container
 from agent_firewall.management import ManagementService
 from agent_firewall.models.audit import AuditLogEntry, AuditLogQuery
 from agent_firewall.models.config import AdapterConfig, RuntimeConfig
-from agent_firewall.models.policy import PolicyRule, PolicyValidationResult
+from agent_firewall.models.policy import PolicyRevision, PolicyRule, PolicyValidationResult
 from agent_firewall.models.tooling import ToolExecutionResult, ToolInvocationDecision, ToolInvocationRequest
 from agent_firewall.observability import configure_telemetry, instrument_fastapi
 from agent_firewall.service import FirewallService
@@ -127,6 +127,14 @@ def create_app(settings: Settings | None = None, container: Container | None = N
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="policy not found")
         return policy
 
+    @app.get(f"{settings.api_prefix}/policies/{{policy_id}}/revisions", response_model=list[PolicyRevision])
+    async def list_policy_revisions(
+        policy_id: str,
+        principal: AuthPrincipal = Depends(get_management_principal),
+        management_service: ManagementService = Depends(get_management_service),
+    ) -> list[PolicyRevision]:
+        return list(await management_service.list_policy_revisions(principal.tenant_id, policy_id))
+
     @app.put(f"{settings.api_prefix}/policies/{{policy_id}}", response_model=PolicyRule)
     async def update_policy(
         policy_id: str,
@@ -179,6 +187,29 @@ def create_app(settings: Settings | None = None, container: Container | None = N
             payload={"policy_id": policy_id},
         )
         return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @app.post(f"{settings.api_prefix}/policies/{{policy_id}}/publish", response_model=PolicyRule)
+    async def publish_policy(
+        policy_id: str,
+        principal: AuthPrincipal = Depends(get_management_principal),
+        management_service: ManagementService = Depends(get_management_service),
+    ) -> PolicyRule:
+        policy = await management_service.publish_policy(principal.tenant_id, policy_id)
+        if policy is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="policy not found")
+        return policy
+
+    @app.post(f"{settings.api_prefix}/policies/{{policy_id}}/rollback/{{version}}", response_model=PolicyRule)
+    async def rollback_policy(
+        policy_id: str,
+        version: int,
+        principal: AuthPrincipal = Depends(get_management_principal),
+        management_service: ManagementService = Depends(get_management_service),
+    ) -> PolicyRule:
+        policy = await management_service.rollback_policy(principal.tenant_id, policy_id, version)
+        if policy is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="policy revision not found")
+        return policy
 
     @app.get(f"{settings.api_prefix}/adapters", response_model=list[AdapterConfig])
     async def list_adapters(

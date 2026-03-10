@@ -13,6 +13,9 @@ The optional FastAPI service exposes the shared policy engine over HTTP.
 - `POST /v1/policies`
 - `POST /v1/policies/validate`
 - `GET /v1/policies/{policy_id}`
+- `GET /v1/policies/{policy_id}/revisions`
+- `POST /v1/policies/{policy_id}/publish`
+- `POST /v1/policies/{policy_id}/rollback/{version}`
 - `PUT /v1/policies/{policy_id}`
 - `DELETE /v1/policies/{policy_id}`
 

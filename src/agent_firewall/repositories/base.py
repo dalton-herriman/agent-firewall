@@ -5,7 +5,7 @@ from typing import Protocol
 
 from agent_firewall.models.audit import AuditLogEntry, AuditLogQuery
 from agent_firewall.models.config import AdapterConfig, RuntimeConfig
-from agent_firewall.models.policy import PolicyRule
+from agent_firewall.models.policy import PolicyRevision, PolicyRule
 
 
 class PolicyRepository(Protocol):
@@ -22,6 +22,12 @@ class PolicyRepository(Protocol):
         ...
 
     async def delete_policy(self, tenant_id: str, policy_id: str) -> bool:
+        ...
+
+    async def list_policy_revisions(self, tenant_id: str, policy_id: str) -> Sequence[PolicyRevision]:
+        ...
+
+    async def append_policy_revision(self, revision: PolicyRevision) -> None:
         ...
 
 

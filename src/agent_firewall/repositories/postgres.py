@@ -9,7 +9,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from agent_firewall.models.audit import AuditLogEntry, AuditLogQuery
 from agent_firewall.models.config import AdapterConfig, RuntimeConfig, ToolArgumentSpec
-from agent_firewall.models.policy import PolicyCondition, PolicyResource, PolicyRule, PolicySubject
+from agent_firewall.models.policy import PolicyCondition, PolicyResource, PolicyRevision, PolicyRule, PolicySubject
 from agent_firewall.repositories.base import (
     AdapterRepository,
     AuditLogRepository,
@@ -37,7 +37,19 @@ class PolicyRuleRow(Base):
     conditions: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
     priority: Mapped[int] = mapped_column(Integer, default=100)
     version: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String(20), default="draft")
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class PolicyRevisionRow(Base):
+    __tablename__ = "policy_revisions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    policy_id: Mapped[str] = mapped_column(String(36), index=True)
+    tenant_id: Mapped[str] = mapped_column(String(200), index=True, default="default")
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    change_summary: Mapped[str] = mapped_column(String(300))
+    snapshot: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
 
 
 class AuditLogRow(Base):
@@ -103,6 +115,7 @@ class PostgresPolicyRepository(PolicyRepository):
                     conditions=[PolicyCondition.model_validate(item) for item in row.conditions],
                     priority=row.priority,
                     version=row.version,
+                    status=row.status,
                     enabled=row.enabled,
                 )
                 for row in rows
@@ -126,6 +139,7 @@ class PostgresPolicyRepository(PolicyRepository):
                     conditions=[PolicyCondition.model_validate(item) for item in row.conditions],
                     priority=row.priority,
                     version=row.version,
+                    status=row.status,
                     enabled=row.enabled,
                 )
                 for row in rows
@@ -148,6 +162,7 @@ class PostgresPolicyRepository(PolicyRepository):
                 conditions=[PolicyCondition.model_validate(item) for item in row.conditions],
                 priority=row.priority,
                 version=row.version,
+                status=row.status,
                 enabled=row.enabled,
             )
 
@@ -166,6 +181,7 @@ class PostgresPolicyRepository(PolicyRepository):
                 conditions=[condition.model_dump(mode="json") for condition in policy.conditions],
                 priority=policy.priority,
                 version=policy.version,
+                status=policy.status,
                 enabled=policy.enabled,
             )
             await session.merge(row)
@@ -179,6 +195,37 @@ class PostgresPolicyRepository(PolicyRepository):
             )
             await session.commit()
             return result.rowcount > 0
+
+    async def list_policy_revisions(self, tenant_id: str, policy_id: str) -> Sequence[PolicyRevision]:
+        async with self._session_factory() as session:
+            rows = await session.scalars(
+                select(PolicyRevisionRow)
+                .where(PolicyRevisionRow.tenant_id == tenant_id, PolicyRevisionRow.policy_id == policy_id)
+                .order_by(PolicyRevisionRow.version.desc())
+            )
+            return [
+                PolicyRevision(
+                    policy_id=row.policy_id,
+                    tenant_id=row.tenant_id,
+                    version=row.version,
+                    snapshot=PolicyRule.model_validate(row.snapshot),
+                    change_summary=row.change_summary,
+                )
+                for row in rows
+            ]
+
+    async def append_policy_revision(self, revision: PolicyRevision) -> None:
+        async with self._session_factory() as session:
+            session.add(
+                PolicyRevisionRow(
+                    policy_id=str(revision.policy_id),
+                    tenant_id=revision.tenant_id,
+                    version=revision.version,
+                    change_summary=revision.change_summary,
+                    snapshot=revision.snapshot.model_dump(mode="json", by_alias=True),
+                )
+            )
+            await session.commit()
 
 
 class PostgresAuditLogRepository(AuditLogRepository):

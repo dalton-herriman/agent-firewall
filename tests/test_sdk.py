@@ -151,6 +151,8 @@ def test_policy_model_supports_versioning() -> None:
         subject=PolicySubject(agent_ids=["agent-1"]),
         resource=PolicyResource(tool_names=["weather.lookup"]),
         version=3,
+        status="published",
     )
 
     assert policy.version == 3
+    assert policy.status == "published"

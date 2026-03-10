@@ -4,7 +4,7 @@ from collections.abc import Sequence
 
 from agent_firewall.models.audit import AuditLogEntry, AuditLogQuery
 from agent_firewall.models.config import AdapterConfig, RuntimeConfig
-from agent_firewall.models.policy import PolicyRule
+from agent_firewall.models.policy import PolicyRevision, PolicyRule
 from agent_firewall.repositories.base import (
     AdapterRepository,
     AuditLogRepository,
@@ -16,6 +16,7 @@ from agent_firewall.repositories.base import (
 class InMemoryPolicyRepository(PolicyRepository):
     def __init__(self, rules: list[PolicyRule] | None = None) -> None:
         self._rules = {str(rule.id): rule for rule in rules or []}
+        self._revisions: dict[str, list[PolicyRevision]] = {}
 
     async def list_rules_for_agent(self, tenant_id: str, agent_id: str) -> Sequence[PolicyRule]:
         return [
@@ -40,6 +41,12 @@ class InMemoryPolicyRepository(PolicyRepository):
             return False
         self._rules.pop(policy_id, None)
         return True
+
+    async def list_policy_revisions(self, tenant_id: str, policy_id: str) -> Sequence[PolicyRevision]:
+        return [revision for revision in self._revisions.get(policy_id, []) if revision.tenant_id == tenant_id]
+
+    async def append_policy_revision(self, revision: PolicyRevision) -> None:
+        self._revisions.setdefault(str(revision.policy_id), []).append(revision)
 
 
 class InMemoryAuditLogRepository(AuditLogRepository):
