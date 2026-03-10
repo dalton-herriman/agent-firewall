@@ -1,6 +1,6 @@
 # Architecture
 
-Agent Firewall is split into a reusable SDK and an optional centralized server.
+Agent Firewall is built as a reusable SDK first, with an optional centralized server layered on top of the same engine.
 
 ## Core engine
 
@@ -24,14 +24,14 @@ The main execution path is:
 
 ## SDK surface
 
-The SDK is the OSS adoption path. It exposes:
+The SDK is the primary OSS adoption path. It exposes:
 
 - `AgentFirewallSDK` for direct embedding in agent runtimes
 - `GuardedTool` for wrapping callables as protected tools
 - `tool_guard` for async decorator-based integration
 - `sdk_hook` for framework adapters that want a hook-style primitive
 
-This keeps initial adoption simple: developers can add the library around existing tool functions before they deploy a centralized service.
+This keeps initial adoption simple: developers can add the library around existing tool functions before they deploy a centralized service. The SDK should remain the lowest-friction way to use the project.
 
 ## Server surface
 
@@ -42,7 +42,7 @@ The FastAPI server is optional. It uses the same engine and provides:
 - CRUD APIs for policies, adapters, and runtime config
 - audit log query APIs
 
-The server is the path for teams that want shared policy storage, centralized logging, and a network boundary between agents and tools.
+The server is the path for teams that want shared policy storage, centralized logging, and a network boundary between agents and tools. It is intentionally secondary to the embedded library experience.
 
 ## Persistence and state
 

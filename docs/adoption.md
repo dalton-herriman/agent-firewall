@@ -1,5 +1,7 @@
 # Adoption Paths
 
+The recommended path is to start with the SDK and only introduce the server when you need centralization.
+
 ## OSS-first
 
 Embed the SDK directly in the agent process.
@@ -13,6 +15,7 @@ Use this path when:
 - you want the smallest integration surface
 - your agent already runs tool calls in-process
 - you do not need centralized policy management yet
+- you want the default OSS adoption path for this project
 
 ## Centralized team deployment
 

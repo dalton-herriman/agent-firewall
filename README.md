@@ -1,17 +1,21 @@
 # Agent Firewall
 
-Agent Firewall is designed as two deliverables built on the same core policy engine.
+Agent Firewall is an SDK-first control layer for AI agent tool use.
+
+The primary product is the `agent-firewall` Python library: embed it directly in an agent runtime, wrap tool calls, and enforce policy without introducing a new network hop. `agent-firewall-server` is a secondary deployment option for teams that need centralized policy management, audit collection, or brokered execution.
 
 See [CHANGELOG.md](CHANGELOG.md) for release notes and [CONTRIBUTING.md](CONTRIBUTING.md) for contributor workflow.
 
 ## Deliverables
 
 - `agent-firewall` Python SDK
+  - Primary product and default adoption path
   - Library-first adoption path for OSS agent projects
   - Middleware, decorators, and hooks that wrap tool calls before execution
   - Embeddable policy evaluation, audit logging, and rate limiting
 - `agent-firewall-server`
-  - Optional FastAPI service for teams that want centralized policy management and audit collection
+  - Optional FastAPI control plane built on the same engine
+  - Intended for teams that want centralized policy management and audit collection
   - Reuses the same core engine underneath the SDK
 
 ## Stack
@@ -34,6 +38,12 @@ See [CHANGELOG.md](CHANGELOG.md) for release notes and [CONTRIBUTING.md](CONTRIB
 
 For real backing service validation, use `make verify-stack` and `make test-integration` after Postgres and Redis are running.
 
+## Positioning
+
+Use the SDK when you want the easiest OSS adoption path, the lowest operational overhead, and an in-process enforcement boundary around tools.
+
+Add the server when you need shared policy storage, shared audit visibility, tenant isolation, or a network execution boundary across multiple agents.
+
 ## Docs
 
 - [Architecture](docs/architecture.md)
@@ -43,6 +53,7 @@ For real backing service validation, use `make verify-stack` and `make test-inte
 - [Integrations](docs/integrations.md)
 - [Policy semantics](docs/policies.md)
 - [Policy workflow](docs/policy-workflow.md)
+- [Product positioning](docs/positioning.md)
 - [Execution reliability](docs/reliability.md)
 - [Execution boundary](docs/execution.md)
 - [Server security](docs/security.md)
