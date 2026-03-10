@@ -166,6 +166,7 @@ class FirewallService:
         await self._audit_log_repository.record(
             AuditLogEntry(
                 tenant_id=request.tenant_id,
+                project_id=request.project_id,
                 agent_id=request.agent_id,
                 tool_name=request.tool_name,
                 decision="allow" if decision.allowed else "deny",

@@ -60,6 +60,8 @@ class InMemoryAuditLogRepository(AuditLogRepository):
         entries = self.entries
         if query.tenant_id:
             entries = [entry for entry in entries if entry.tenant_id == query.tenant_id]
+        if query.project_id:
+            entries = [entry for entry in entries if entry.project_id == query.project_id]
         if query.agent_id:
             entries = [entry for entry in entries if entry.agent_id == query.agent_id]
         if query.tool_name:

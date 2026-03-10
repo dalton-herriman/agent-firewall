@@ -65,7 +65,17 @@ async def test_evaluate_tool_invocation_and_audit_log_flow() -> None:
         Settings(
             app_env="test",
             auth_enabled=True,
-            api_keys=[ApiKeyConfig(key="eval-key", actor_id="svc", tenant_id="tenant-a", scopes=["evaluate"])],
+            api_keys=[
+                ApiKeyConfig(
+                    key_id="eval-key-1",
+                    key="eval-key",
+                    actor_id="svc",
+                    tenant_id="tenant-a",
+                    roles=["operator"],
+                    scopes=[],
+                    project_ids=["project-a"],
+                )
+            ],
         ),
         container=build_test_container(),
     )
@@ -74,6 +84,7 @@ async def test_evaluate_tool_invocation_and_audit_log_flow() -> None:
             "/v1/tool-invocations/evaluate",
             json={
                 "tenant_id": "tenant-a",
+                "project_id": "project-a",
                 "agent_id": "agent-1",
                 "action": "invoke",
                 "tool_name": "weather.lookup",
@@ -95,7 +106,17 @@ async def test_policy_adapter_and_runtime_config_crud() -> None:
         Settings(
             app_env="test",
             auth_enabled=True,
-            api_keys=[ApiKeyConfig(key="manage-key", actor_id="admin", tenant_id="tenant-a", scopes=["evaluate", "manage"])],
+            api_keys=[
+                ApiKeyConfig(
+                    key_id="manage-key-1",
+                    key="manage-key",
+                    actor_id="admin",
+                    tenant_id="tenant-a",
+                    roles=["admin"],
+                    scopes=[],
+                    project_ids=["project-a"],
+                )
+            ],
         ),
         container=build_test_container(),
     )
@@ -181,7 +202,17 @@ async def test_auth_rejects_missing_key_when_enabled() -> None:
         Settings(
             app_env="test",
             auth_enabled=True,
-            api_keys=[ApiKeyConfig(key="eval-key", actor_id="svc", tenant_id="tenant-a", scopes=["evaluate"])],
+            api_keys=[
+                ApiKeyConfig(
+                    key_id="eval-key-1",
+                    key="eval-key",
+                    actor_id="svc",
+                    tenant_id="tenant-a",
+                    roles=["operator"],
+                    scopes=[],
+                    project_ids=["project-a"],
+                )
+            ],
         ),
         container=build_test_container(),
     )
@@ -197,3 +228,39 @@ async def test_auth_rejects_missing_key_when_enabled() -> None:
         )
 
     assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_project_scope_rejects_out_of_scope_request() -> None:
+    app = create_app(
+        Settings(
+            app_env="test",
+            auth_enabled=True,
+            api_keys=[
+                ApiKeyConfig(
+                    key_id="eval-key-1",
+                    key="eval-key",
+                    actor_id="svc",
+                    tenant_id="tenant-a",
+                    roles=["operator"],
+                    scopes=[],
+                    project_ids=["project-a"],
+                )
+            ],
+        ),
+        container=build_test_container(),
+    )
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
+        response = await client.post(
+            "/v1/tool-invocations/evaluate",
+            json={
+                "tenant_id": "tenant-a",
+                "project_id": "project-b",
+                "agent_id": "agent-1",
+                "tool_name": "weather.lookup",
+                "tool_args": {"city": "Chicago"},
+            },
+            headers={"x-agent-firewall-key": "eval-key"},
+        )
+
+    assert response.status_code == 403

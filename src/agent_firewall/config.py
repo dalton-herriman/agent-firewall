@@ -1,3 +1,4 @@
+from datetime import datetime
 from functools import lru_cache
 
 from pydantic import BaseModel, Field
@@ -5,10 +6,15 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class ApiKeyConfig(BaseModel):
+    key_id: str = Field(min_length=1, max_length=200)
     key: str
     actor_id: str
     tenant_id: str
+    roles: list[str] = Field(default_factory=list)
     scopes: list[str] = Field(default_factory=list)
+    project_ids: list[str] = Field(default_factory=list)
+    status: str = "active"
+    expires_at: datetime | None = None
 
 
 class ExecutionConfig(BaseModel):

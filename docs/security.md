@@ -7,10 +7,15 @@ When `AGENT_FIREWALL_AUTH_ENABLED=true`, requests must include `X-Agent-Firewall
 ```json
 [
   {
+    "key_id": "dev-key-2026-03",
     "key": "dev-key",
     "actor_id": "local-admin",
     "tenant_id": "default",
-    "scopes": ["evaluate", "manage"]
+    "roles": ["admin"],
+    "scopes": [],
+    "project_ids": ["project-a"],
+    "status": "active",
+    "expires_at": null
   }
 ]
 ```

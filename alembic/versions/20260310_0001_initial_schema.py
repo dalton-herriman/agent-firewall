@@ -49,6 +49,7 @@ def upgrade() -> None:
         "audit_logs",
         sa.Column("id", sa.String(length=36), nullable=False),
         sa.Column("tenant_id", sa.String(length=200), nullable=False, server_default="default"),
+        sa.Column("project_id", sa.String(length=200), nullable=True),
         sa.Column("actor_id", sa.String(length=200), nullable=True),
         sa.Column("agent_id", sa.String(length=200), nullable=False),
         sa.Column("tool_name", sa.String(length=200), nullable=False),
@@ -60,6 +61,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_audit_logs_agent_id", "audit_logs", ["agent_id"])
+    op.create_index("ix_audit_logs_project_id", "audit_logs", ["project_id"])
     op.create_index("ix_audit_logs_tenant_id", "audit_logs", ["tenant_id"])
     op.create_index("ix_audit_logs_tool_name", "audit_logs", ["tool_name"])
     op.create_index("ix_audit_logs_created_at", "audit_logs", ["created_at"])
@@ -89,6 +91,7 @@ def downgrade() -> None:
     op.drop_index("ix_policy_revisions_tenant_id", table_name="policy_revisions")
     op.drop_index("ix_policy_revisions_policy_id", table_name="policy_revisions")
     op.drop_table("policy_revisions")
+    op.drop_index("ix_audit_logs_project_id", table_name="audit_logs")
     op.drop_index("ix_audit_logs_tenant_id", table_name="audit_logs")
     op.drop_index("ix_audit_logs_created_at", table_name="audit_logs")
     op.drop_index("ix_audit_logs_tool_name", table_name="audit_logs")

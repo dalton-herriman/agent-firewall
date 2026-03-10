@@ -64,6 +64,7 @@ class HttpToolExecutor:
                     payload = response.json() if response.content else {}
                 result = ToolExecutionResult(
                     tenant_id=request.tenant_id,
+                    project_id=request.project_id,
                     tool_name=request.tool_name,
                     status="executed",
                     attempts=attempts,

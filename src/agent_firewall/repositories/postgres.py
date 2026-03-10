@@ -57,6 +57,7 @@ class AuditLogRow(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     tenant_id: Mapped[str] = mapped_column(String(200), index=True, default="default")
+    project_id: Mapped[str | None] = mapped_column(String(200), nullable=True, index=True)
     actor_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
     agent_id: Mapped[str] = mapped_column(String(200), index=True)
     tool_name: Mapped[str] = mapped_column(String(200), index=True)
@@ -238,6 +239,7 @@ class PostgresAuditLogRepository(AuditLogRepository):
                 AuditLogRow(
                     id=str(entry.id),
                     tenant_id=entry.tenant_id,
+                    project_id=entry.project_id,
                     actor_id=entry.actor_id,
                     agent_id=entry.agent_id,
                     tool_name=entry.tool_name,
@@ -255,6 +257,8 @@ class PostgresAuditLogRepository(AuditLogRepository):
             statement = select(AuditLogRow).order_by(desc(AuditLogRow.created_at)).limit(query.limit)
             if query.tenant_id:
                 statement = statement.where(AuditLogRow.tenant_id == query.tenant_id)
+            if query.project_id:
+                statement = statement.where(AuditLogRow.project_id == query.project_id)
             if query.agent_id:
                 statement = statement.where(AuditLogRow.agent_id == query.agent_id)
             if query.tool_name:
@@ -264,6 +268,7 @@ class PostgresAuditLogRepository(AuditLogRepository):
                 AuditLogEntry(
                     id=row.id,
                     tenant_id=row.tenant_id,
+                    project_id=row.project_id,
                     actor_id=row.actor_id,
                     agent_id=row.agent_id,
                     tool_name=row.tool_name,

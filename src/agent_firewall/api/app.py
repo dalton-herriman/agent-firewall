@@ -36,6 +36,10 @@ async def get_management_principal(request: Request) -> AuthPrincipal:
     return require_scope(request, "manage")
 
 
+async def get_audit_principal(request: Request) -> AuthPrincipal:
+    return require_scope(request, "audit:read")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings: Settings = app.state.settings
@@ -70,6 +74,8 @@ def create_app(settings: Settings | None = None, container: Container | None = N
     ) -> ToolInvocationDecision:
         if payload.tenant_id != principal.tenant_id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="tenant mismatch")
+        if principal.project_ids and payload.project_id not in principal.project_ids:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="project mismatch")
         return await firewall_service.evaluate(payload)
 
     @app.post(f"{settings.api_prefix}/tool-invocations/execute", response_model=ToolExecutionResult)
@@ -80,6 +86,8 @@ def create_app(settings: Settings | None = None, container: Container | None = N
     ) -> ToolExecutionResult:
         if payload.tenant_id != principal.tenant_id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="tenant mismatch")
+        if principal.project_ids and payload.project_id not in principal.project_ids:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="project mismatch")
         try:
             return await firewall_service.execute(payload)
         except LookupError as exc:
@@ -359,13 +367,22 @@ def create_app(settings: Settings | None = None, container: Container | None = N
     async def list_audit_logs(
         agent_id: str | None = None,
         tool_name: str | None = None,
+        project_id: str | None = None,
         limit: int = 100,
-        principal: AuthPrincipal = Depends(get_management_principal),
+        principal: AuthPrincipal = Depends(get_audit_principal),
         management_service: ManagementService = Depends(get_management_service),
     ) -> list[AuditLogEntry]:
+        if principal.project_ids and project_id and project_id not in principal.project_ids:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="project mismatch")
         return list(
             await management_service.list_audit_logs(
-                AuditLogQuery(tenant_id=principal.tenant_id, agent_id=agent_id, tool_name=tool_name, limit=limit)
+                AuditLogQuery(
+                    tenant_id=principal.tenant_id,
+                    project_id=project_id,
+                    agent_id=agent_id,
+                    tool_name=tool_name,
+                    limit=limit,
+                )
             )
         )
 

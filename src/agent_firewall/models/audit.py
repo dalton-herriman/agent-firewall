@@ -13,6 +13,7 @@ class AuditLogEntry(BaseModel):
 
     id: UUID = Field(default_factory=new_id)
     tenant_id: str = Field(default="default", min_length=1, max_length=200)
+    project_id: str | None = Field(default=None, min_length=1, max_length=200)
     actor_id: str | None = None
     agent_id: str = Field(min_length=1, max_length=200)
     tool_name: str = Field(min_length=1, max_length=200)
@@ -27,6 +28,7 @@ class AuditLogQuery(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     tenant_id: str | None = None
+    project_id: str | None = None
     agent_id: str | None = None
     tool_name: str | None = None
     limit: int = Field(default=100, ge=1, le=500)
