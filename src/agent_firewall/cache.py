@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from time import monotonic
 from typing import Protocol
 
 from redis.asyncio import Redis
@@ -24,12 +25,15 @@ class RedisRateLimiter:
 
 class InMemoryRateLimiter:
     def __init__(self) -> None:
-        self._counts: dict[str, int] = {}
+        self._counts: dict[str, tuple[int, float]] = {}
 
     async def check(self, key: str, limit: int, window_seconds: int) -> tuple[bool, int]:
-        del window_seconds
-        current = self._counts.get(key, 0) + 1
-        self._counts[key] = current
+        now = monotonic()
+        count, reset_at = self._counts.get(key, (0, now + window_seconds))
+        if now >= reset_at:
+            count = 0
+            reset_at = now + window_seconds
+        current = count + 1
+        self._counts[key] = (current, reset_at)
         remaining = max(limit - current, 0)
         return current <= limit, remaining
-

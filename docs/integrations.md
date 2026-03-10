@@ -23,3 +23,5 @@ from agent_firewall import AgentFirewallSDK, guard_openai_tool
 - `GuardedTool` wraps a callable directly
 - `tool_guard` gives decorator-style protection
 - `sdk_hook` exposes a low-level authorize-only primitive for custom framework adapters
+
+These wrappers support tenant-aware and project-aware calls through the SDK surface, so framework integrations do not have to collapse everything into the default tenant.

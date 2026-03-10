@@ -156,3 +156,58 @@ def test_policy_model_supports_versioning() -> None:
 
     assert policy.version == 3
     assert policy.status == "published"
+
+
+@pytest.mark.asyncio
+async def test_sdk_authorize_propagates_tenant_and_project_scope() -> None:
+    sdk = build_sdk()
+
+    decision = await sdk.authorize(
+        tenant_id="tenant-x",
+        project_id="project-y",
+        agent_id="agent-1",
+        tool_name="weather.lookup",
+        tool_args={"city": "Chicago"},
+    )
+
+    assert decision.allowed is False
+    assert decision.reason == "unknown tool"
+
+
+@pytest.mark.asyncio
+async def test_tool_guard_supports_tenant_and_project_getters() -> None:
+    captured: list[tuple[str, str | None]] = []
+
+    class RecordingSDK:
+        async def authorize(
+            self,
+            *,
+            tenant_id: str = "default",
+            project_id: str | None = None,
+            agent_id: str,
+            tool_name: str,
+            tool_args=None,
+            metadata=None,
+        ):
+            captured.append((tenant_id, project_id))
+            from agent_firewall.models.tooling import ToolInvocationDecision
+
+            return ToolInvocationDecision(allowed=True, reason="ok")
+
+    sdk = RecordingSDK()
+
+    @tool_guard(
+        sdk=sdk,
+        tenant_id_getter=lambda tenant_id, project_id, agent_id, city: tenant_id,
+        project_id_getter=lambda tenant_id, project_id, agent_id, city: project_id,
+        agent_id_getter=lambda tenant_id, project_id, agent_id, city: agent_id,
+        tool_name="weather.lookup",
+        tool_args_getter=lambda tenant_id, project_id, agent_id, city: {"city": city},
+    )
+    async def run_tool(tenant_id: str, project_id: str, agent_id: str, city: str) -> str:
+        return f"weather for {city}"
+
+    result = await run_tool("tenant-a", "project-a", "agent-1", "Chicago")
+
+    assert result == "weather for Chicago"
+    assert captured == [("tenant-a", "project-a")]

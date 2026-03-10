@@ -5,6 +5,7 @@ from agent_firewall.api.app import create_app
 from agent_firewall.cache import InMemoryRateLimiter
 from agent_firewall.config import ApiKeyConfig, Settings
 from agent_firewall.container import Container
+from agent_firewall.models.audit import AuditLogEntry
 from agent_firewall.models.config import AdapterConfig, RuntimeConfig, ToolArgumentSpec
 from agent_firewall.models.policy import PolicyCondition, PolicyResource, PolicyRule, PolicySubject
 from agent_firewall.repositories.memory import (
@@ -114,7 +115,7 @@ async def test_policy_adapter_and_runtime_config_crud() -> None:
                     tenant_id="tenant-a",
                     roles=["admin"],
                     scopes=[],
-                    project_ids=["project-a"],
+                    project_ids=[],
                 )
             ],
         ),
@@ -309,3 +310,83 @@ async def test_invalid_not_in_policy_payload_is_rejected() -> None:
         )
 
     assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_audit_logs_require_project_filter_for_multi_project_principal() -> None:
+    app = create_app(
+        Settings(
+            app_env="test",
+            auth_enabled=True,
+            api_keys=[
+                ApiKeyConfig(
+                    key_id="observer-key-1",
+                    key="observer-key",
+                    actor_id="observer",
+                    tenant_id="tenant-a",
+                    roles=["observer"],
+                    scopes=[],
+                    project_ids=["project-a", "project-b"],
+                )
+            ],
+        ),
+        container=build_test_container(),
+    )
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
+        response = await client.get("/v1/audit-logs", headers={"x-agent-firewall-key": "observer-key"})
+
+    assert response.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_audit_logs_default_to_only_project_for_single_project_principal() -> None:
+    container = build_test_container()
+    await container.audit_log_repository.record(
+        AuditLogEntry(
+            tenant_id="tenant-a",
+            project_id="project-a",
+            actor_id="svc-a",
+            agent_id="agent-1",
+            tool_name="weather.lookup",
+            decision="allow",
+            reason="allowed",
+            request_payload={},
+        )
+    )
+    await container.audit_log_repository.record(
+        AuditLogEntry(
+            tenant_id="tenant-a",
+            project_id="project-b",
+            actor_id="svc-b",
+            agent_id="agent-2",
+            tool_name="weather.lookup",
+            decision="allow",
+            reason="allowed",
+            request_payload={},
+        )
+    )
+    app = create_app(
+        Settings(
+            app_env="test",
+            auth_enabled=True,
+            api_keys=[
+                ApiKeyConfig(
+                    key_id="observer-key-1",
+                    key="observer-key",
+                    actor_id="observer",
+                    tenant_id="tenant-a",
+                    roles=["observer"],
+                    scopes=[],
+                    project_ids=["project-a"],
+                )
+            ],
+        ),
+        container=container,
+    )
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
+        response = await client.get("/v1/audit-logs", headers={"x-agent-firewall-key": "observer-key"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload) == 1
+    assert payload[0]["project_id"] == "project-a"

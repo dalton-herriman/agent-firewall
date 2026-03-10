@@ -10,6 +10,8 @@ Embed the SDK directly in the agent process.
 from agent_firewall import AgentFirewallSDK, GuardedTool, guard_langchain_tool, guard_openai_tool
 ```
 
+The SDK surface can carry `tenant_id` and `project_id` alongside `agent_id`, so embedded deployments can still enforce tenant-scoped policy and produce project-scoped audit attribution without introducing the server.
+
 Use this path when:
 
 - you want the smallest integration surface

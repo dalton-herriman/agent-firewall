@@ -20,12 +20,16 @@ class AgentFirewallSDK:
     async def authorize(
         self,
         *,
+        tenant_id: str = "default",
+        project_id: str | None = None,
         agent_id: str,
         tool_name: str,
         tool_args: dict[str, Any] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> ToolInvocationDecision:
         request = ToolInvocationRequest(
+            tenant_id=tenant_id,
+            project_id=project_id,
             agent_id=agent_id,
             tool_name=tool_name,
             tool_args=tool_args or {},
@@ -36,6 +40,8 @@ class AgentFirewallSDK:
     async def call_tool(
         self,
         *,
+        tenant_id: str = "default",
+        project_id: str | None = None,
         agent_id: str,
         tool_name: str,
         tool_args: dict[str, Any],
@@ -43,6 +49,8 @@ class AgentFirewallSDK:
         metadata: dict[str, Any] | None = None,
     ) -> T:
         decision = await self.authorize(
+            tenant_id=tenant_id,
+            project_id=project_id,
             agent_id=agent_id,
             tool_name=tool_name,
             tool_args=tool_args,
@@ -54,4 +62,3 @@ class AgentFirewallSDK:
         if isawaitable(result):
             return await result
         return result
-

@@ -1,6 +1,7 @@
 import pytest
 
 from agent_firewall.config import ExecutionConfig, Settings
+from agent_firewall.cache import InMemoryRateLimiter
 from agent_firewall.executor import HttpToolExecutor
 from agent_firewall.models.config import AdapterConfig
 from agent_firewall.models.tooling import ToolInvocationDecision, ToolInvocationRequest
@@ -139,3 +140,19 @@ def test_circuit_breaker_state_opens_after_threshold() -> None:
     assert state.is_circuit_open(key, now=100.0) is False
     state.record_failure(key, threshold=2, reset_seconds=30, now=101.0)
     assert state.is_circuit_open(key, now=101.0) is True
+
+
+@pytest.mark.asyncio
+async def test_in_memory_rate_limiter_resets_after_window(monkeypatch) -> None:
+    limiter = InMemoryRateLimiter()
+    times = iter([100.0, 100.0, 103.1])
+
+    monkeypatch.setattr("agent_firewall.cache.monotonic", lambda: next(times))
+
+    first = await limiter.check("ratelimit:key", limit=1, window_seconds=3)
+    second = await limiter.check("ratelimit:key", limit=1, window_seconds=3)
+    third = await limiter.check("ratelimit:key", limit=1, window_seconds=3)
+
+    assert first == (True, 0)
+    assert second == (False, 0)
+    assert third == (True, 0)

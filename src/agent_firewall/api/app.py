@@ -384,8 +384,16 @@ def create_app(settings: Settings | None = None, container: Container | None = N
         principal: AuthPrincipal = Depends(get_audit_principal),
         management_service: ManagementService = Depends(get_management_service),
     ) -> list[AuditLogEntry]:
-        if principal.project_ids and project_id and project_id not in principal.project_ids:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="project mismatch")
+        if principal.project_ids:
+            if project_id is None:
+                if len(principal.project_ids) != 1:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="project_id is required for project-scoped audit access",
+                    )
+                project_id = next(iter(principal.project_ids))
+            elif project_id not in principal.project_ids:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="project mismatch")
         return list(
             await management_service.list_audit_logs(
                 AuditLogQuery(
