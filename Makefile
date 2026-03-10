@@ -4,7 +4,7 @@ PYTEST := .venv/bin/pytest
 ALEMBIC := .venv/bin/alembic
 UVICORN := .venv/bin/uvicorn
 
-.PHONY: venv install test test-integration verify-stack run migrate-up migrate-down services-up services-down
+.PHONY: venv install bootstrap test test-integration verify-stack run migrate-up migrate-down services-up services-down
 
 venv:
 	python3 -m venv .venv
@@ -12,6 +12,9 @@ venv:
 install:
 	$(PIP) install -r requirements-dev.txt
 	$(PIP) install -e .
+
+bootstrap:
+	$(PYTHON) scripts/bootstrap_dev.py
 
 test:
 	$(PYTEST) -q

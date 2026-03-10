@@ -1,0 +1,37 @@
+{
+  "policies": [
+    {
+      "tenant_id": "default",
+      "name": "allow chicago weather",
+      "action": "allow",
+      "operation": "invoke",
+      "subject": { "agent_ids": ["demo-agent"] },
+      "resource": { "tool_names": ["weather.lookup"] },
+      "conditions": [
+        { "field": "tool_args.city", "operator": "eq", "value": "Chicago" }
+      ],
+      "priority": 1,
+      "version": 1,
+      "enabled": true
+    }
+  ],
+  "adapters": [
+    {
+      "tenant_id": "default",
+      "tool_name": "weather.lookup",
+      "target_uri": "http://localhost:8010/mock/weather",
+      "timeout_seconds": 10,
+      "schema": [
+        { "name": "city", "value_type": "string", "required": true, "allowed_values": [] }
+      ]
+    }
+  ],
+  "runtime_config": [
+    {
+      "tenant_id": "default",
+      "key": "policy-mode",
+      "value": { "default": "deny" }
+    }
+  ]
+}
+

@@ -65,6 +65,7 @@ uvicorn agent_firewall.server:create_server_app --factory --reload
 ## Make targets
 
 ```bash
+make bootstrap
 make install
 make services-up
 make migrate-up
