@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from agent_firewall.cache import InMemoryRateLimiter, RedisRateLimiter
 from agent_firewall.config import Settings
+from agent_firewall.executor import HttpToolExecutor
 from agent_firewall.health import DependencyHealth, check_dependencies
 from agent_firewall.management import ManagementService
 from agent_firewall.repositories.memory import (
@@ -33,6 +34,7 @@ class Container:
         adapter_repository,
         runtime_config_repository,
         rate_limiter,
+        tool_executor=None,
         engine=None,
         redis: Redis | None = None,
     ) -> None:
@@ -42,6 +44,7 @@ class Container:
         self.adapter_repository = adapter_repository
         self.runtime_config_repository = runtime_config_repository
         self.rate_limiter = rate_limiter
+        self.tool_executor = tool_executor
         self.engine = engine
         self.redis = redis
         self._firewall_service = FirewallService(
@@ -50,6 +53,7 @@ class Container:
             audit_log_repository=self.audit_log_repository,
             adapter_repository=self.adapter_repository,
             rate_limiter=self.rate_limiter,
+            tool_executor=self.tool_executor,
         )
         self._management_service = ManagementService(
             policy_repository=self.policy_repository,
@@ -68,6 +72,7 @@ class Container:
                 adapter_repository=InMemoryAdapterRepository(),
                 runtime_config_repository=InMemoryRuntimeConfigRepository(),
                 rate_limiter=InMemoryRateLimiter(),
+                tool_executor=None,
             )
 
         engine = create_engine(settings.database_url)
@@ -80,6 +85,7 @@ class Container:
             adapter_repository=PostgresAdapterRepository(session_factory),
             runtime_config_repository=PostgresRuntimeConfigRepository(session_factory),
             rate_limiter=RedisRateLimiter(redis),
+            tool_executor=HttpToolExecutor(),
             engine=engine,
             redis=redis,
         )

@@ -5,6 +5,7 @@ The optional FastAPI service exposes the shared policy engine over HTTP.
 ## Evaluation
 
 - `POST /v1/tool-invocations/evaluate`
+- `POST /v1/tool-invocations/execute`
 
 ## Policy management
 

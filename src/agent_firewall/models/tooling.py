@@ -39,3 +39,12 @@ class ToolInvocationDecision(BaseModel):
     action: str = "invoke"
     matched_policy_id: str | None = None
     rate_limit_remaining: int | None = None
+
+
+class ToolExecutionResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tool_name: str
+    status: str
+    output: dict[str, Any] = Field(default_factory=dict)
+    decision: ToolInvocationDecision

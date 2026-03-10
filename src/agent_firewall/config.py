@@ -26,9 +26,9 @@ class Settings(BaseSettings):
     rate_limit_window_seconds: int = 60
     rate_limit_max_requests: int = 30
     default_policy_mode: str = "deny"
+    server_broker_enabled: bool = True
 
 
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-

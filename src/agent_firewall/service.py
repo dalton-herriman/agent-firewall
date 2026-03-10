@@ -6,9 +6,10 @@ from pydantic import ValidationError
 
 from agent_firewall.cache import RateLimiter
 from agent_firewall.config import Settings
+from agent_firewall.executor import ToolExecutor
 from agent_firewall.models.audit import AuditLogEntry
 from agent_firewall.models.config import AdapterConfig, ToolArgumentSpec
-from agent_firewall.models.tooling import ToolInvocationDecision, ToolInvocationRequest
+from agent_firewall.models.tooling import ToolExecutionResult, ToolInvocationDecision, ToolInvocationRequest
 from agent_firewall.policy import evaluate_policy
 from agent_firewall.repositories.base import AdapterRepository, AuditLogRepository, PolicyRepository
 
@@ -21,12 +22,14 @@ class FirewallService:
         audit_log_repository: AuditLogRepository,
         adapter_repository: AdapterRepository,
         rate_limiter: RateLimiter,
+        tool_executor: ToolExecutor | None = None,
     ) -> None:
         self._settings = settings
         self._policy_repository = policy_repository
         self._audit_log_repository = audit_log_repository
         self._adapter_repository = adapter_repository
         self._rate_limiter = rate_limiter
+        self._tool_executor = tool_executor
 
     async def evaluate(self, request: ToolInvocationRequest) -> ToolInvocationDecision:
         adapter = await self._adapter_repository.get_by_tool_name(request.tool_name)
@@ -69,6 +72,19 @@ class FirewallService:
         )
         await self._audit(request, decision)
         return decision
+
+    async def execute(self, request: ToolInvocationRequest) -> ToolExecutionResult:
+        adapter = await self._adapter_repository.get_by_tool_name(request.tool_name)
+        if adapter is None:
+            raise LookupError("unknown tool")
+        decision = await self.evaluate(request)
+        if not decision.allowed:
+            raise PermissionError(decision.reason)
+        if not self._settings.server_broker_enabled:
+            raise RuntimeError("tool broker execution disabled")
+        if self._tool_executor is None:
+            raise RuntimeError("tool executor is not configured")
+        return await self._tool_executor.execute(adapter=adapter, request=request, decision=decision)
 
     def _validate_tool_args(self, adapter: AdapterConfig, tool_args: dict[str, Any]) -> str | None:
         schema = {spec.name: spec for spec in adapter.input_schema}

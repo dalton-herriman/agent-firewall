@@ -10,7 +10,7 @@ from agent_firewall.management import ManagementService
 from agent_firewall.models.audit import AuditLogEntry, AuditLogQuery
 from agent_firewall.models.config import AdapterConfig, RuntimeConfig
 from agent_firewall.models.policy import PolicyRule, PolicyValidationResult
-from agent_firewall.models.tooling import ToolInvocationDecision, ToolInvocationRequest
+from agent_firewall.models.tooling import ToolExecutionResult, ToolInvocationDecision, ToolInvocationRequest
 from agent_firewall.observability import configure_telemetry, instrument_fastapi
 from agent_firewall.service import FirewallService
 
@@ -59,6 +59,20 @@ def create_app(settings: Settings | None = None, container: Container | None = N
         firewall_service: FirewallService = Depends(get_firewall_service),
     ) -> ToolInvocationDecision:
         return await firewall_service.evaluate(payload)
+
+    @app.post(f"{settings.api_prefix}/tool-invocations/execute", response_model=ToolExecutionResult)
+    async def execute_tool_invocation(
+        payload: ToolInvocationRequest,
+        firewall_service: FirewallService = Depends(get_firewall_service),
+    ) -> ToolExecutionResult:
+        try:
+            return await firewall_service.execute(payload)
+        except LookupError as exc:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        except PermissionError as exc:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 
     @app.get(f"{settings.api_prefix}/policies", response_model=list[PolicyRule])
     async def list_policies(management_service: ManagementService = Depends(get_management_service)) -> list[PolicyRule]:
