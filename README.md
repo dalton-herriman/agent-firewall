@@ -38,4 +38,5 @@ For real backing service validation, use `make verify-stack` and `make test-inte
 - [Adoption paths](docs/adoption.md)
 - [Development](docs/development.md)
 - [Integrations](docs/integrations.md)
+- [Policy semantics](docs/policies.md)
 - [Server API](docs/server.md)

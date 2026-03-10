@@ -35,6 +35,7 @@ class PolicyRuleRow(Base):
     invocation_action: Mapped[str] = mapped_column("invocation_action", String(50), default="invoke")
     conditions: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
     priority: Mapped[int] = mapped_column(Integer, default=100)
+    version: Mapped[int] = mapped_column(Integer, default=1)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
@@ -91,6 +92,7 @@ class PostgresPolicyRepository(PolicyRepository):
                     resource=PolicyResource(tool_names=[row.tool]),
                     conditions=[PolicyCondition.model_validate(item) for item in row.conditions],
                     priority=row.priority,
+                    version=row.version,
                     enabled=row.enabled,
                 )
                 for row in rows
@@ -110,6 +112,7 @@ class PostgresPolicyRepository(PolicyRepository):
                     resource=PolicyResource(tool_names=[row.tool]),
                     conditions=[PolicyCondition.model_validate(item) for item in row.conditions],
                     priority=row.priority,
+                    version=row.version,
                     enabled=row.enabled,
                 )
                 for row in rows
@@ -130,6 +133,7 @@ class PostgresPolicyRepository(PolicyRepository):
                 resource=PolicyResource(tool_names=[row.tool]),
                 conditions=[PolicyCondition.model_validate(item) for item in row.conditions],
                 priority=row.priority,
+                version=row.version,
                 enabled=row.enabled,
             )
 
@@ -146,6 +150,7 @@ class PostgresPolicyRepository(PolicyRepository):
                 invocation_action=policy.operation,
                 conditions=[condition.model_dump(mode="json") for condition in policy.conditions],
                 priority=policy.priority,
+                version=policy.version,
                 enabled=policy.enabled,
             )
             await session.merge(row)

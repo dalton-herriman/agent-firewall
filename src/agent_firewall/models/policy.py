@@ -47,6 +47,7 @@ class PolicyRule(BaseModel):
     resource: PolicyResource
     conditions: list[PolicyCondition] = Field(default_factory=list)
     priority: int = Field(default=100, ge=0)
+    version: int = Field(default=1, ge=1)
     enabled: bool = True
 
     @model_validator(mode="before")
@@ -67,3 +68,10 @@ class PolicySet(BaseModel):
 
     agent_id: str = Field(min_length=1, max_length=200)
     rules: list[PolicyRule] = Field(default_factory=list)
+
+
+class PolicyValidationResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    valid: bool
+    errors: list[str] = Field(default_factory=list)

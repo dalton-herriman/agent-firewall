@@ -88,10 +88,26 @@ async def test_policy_adapter_and_runtime_config_crud() -> None:
             json={
                 "name": "deny destructive tools",
                 "action": "deny",
+                "operation": "invoke",
                 "subject": {"agent_ids": ["agent-2"]},
                 "resource": {"tool_names": ["filesystem.*"]},
                 "conditions": [],
                 "priority": 5,
+                "version": 1,
+                "enabled": True,
+            },
+        )
+        validate_conflicting_policy = await client.post(
+            "/v1/policies/validate",
+            json={
+                "name": "conflicting deny",
+                "action": "deny",
+                "operation": "invoke",
+                "subject": {"agent_ids": ["agent-1"]},
+                "resource": {"tool_names": ["weather.lookup"]},
+                "conditions": [{"field": "tool_args.city", "operator": "eq", "value": "Chicago"}],
+                "priority": 1,
+                "version": 1,
                 "enabled": True,
             },
         )
@@ -111,6 +127,8 @@ async def test_policy_adapter_and_runtime_config_crud() -> None:
         )
 
     assert create_policy.status_code == 201
+    assert validate_conflicting_policy.status_code == 200
+    assert validate_conflicting_policy.json()["valid"] is False
     assert list_policies.status_code == 200
     assert len(list_policies.json()) == 2
     assert create_adapter.status_code == 201

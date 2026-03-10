@@ -9,7 +9,7 @@ from agent_firewall.container import Container
 from agent_firewall.management import ManagementService
 from agent_firewall.models.audit import AuditLogEntry, AuditLogQuery
 from agent_firewall.models.config import AdapterConfig, RuntimeConfig
-from agent_firewall.models.policy import PolicyRule
+from agent_firewall.models.policy import PolicyRule, PolicyValidationResult
 from agent_firewall.models.tooling import ToolInvocationDecision, ToolInvocationRequest
 from agent_firewall.observability import configure_telemetry, instrument_fastapi
 from agent_firewall.service import FirewallService
@@ -69,7 +69,10 @@ def create_app(settings: Settings | None = None, container: Container | None = N
         payload: PolicyRule,
         management_service: ManagementService = Depends(get_management_service),
     ) -> PolicyRule:
-        return await management_service.upsert_policy(payload)
+        try:
+            return await management_service.upsert_policy(payload)
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
     @app.get(f"{settings.api_prefix}/policies/{{policy_id}}", response_model=PolicyRule)
     async def get_policy(policy_id: str, management_service: ManagementService = Depends(get_management_service)) -> PolicyRule:
@@ -86,7 +89,17 @@ def create_app(settings: Settings | None = None, container: Container | None = N
     ) -> PolicyRule:
         if str(payload.id) != policy_id:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="policy id mismatch")
-        return await management_service.upsert_policy(payload)
+        try:
+            return await management_service.upsert_policy(payload)
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+    @app.post(f"{settings.api_prefix}/policies/validate", response_model=PolicyValidationResult)
+    async def validate_policy(
+        payload: PolicyRule,
+        management_service: ManagementService = Depends(get_management_service),
+    ) -> PolicyValidationResult:
+        return await management_service.validate_policy(payload)
 
     @app.delete(f"{settings.api_prefix}/policies/{{policy_id}}", status_code=status.HTTP_204_NO_CONTENT)
     async def delete_policy(

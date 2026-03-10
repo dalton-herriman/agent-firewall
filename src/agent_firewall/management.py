@@ -4,7 +4,8 @@ from collections.abc import Sequence
 
 from agent_firewall.models.audit import AuditLogEntry, AuditLogQuery
 from agent_firewall.models.config import AdapterConfig, RuntimeConfig
-from agent_firewall.models.policy import PolicyRule
+from agent_firewall.models.policy import PolicyRule, PolicyValidationResult
+from agent_firewall.policy import validate_policy_candidate
 from agent_firewall.repositories.base import (
     AdapterRepository,
     AuditLogRepository,
@@ -33,7 +34,14 @@ class ManagementService:
         return await self._policy_repository.get_policy(policy_id)
 
     async def upsert_policy(self, policy: PolicyRule) -> PolicyRule:
+        validation = await self.validate_policy(policy)
+        if not validation.valid:
+            raise ValueError("; ".join(validation.errors))
         return await self._policy_repository.upsert_policy(policy)
+
+    async def validate_policy(self, policy: PolicyRule) -> PolicyValidationResult:
+        existing = await self._policy_repository.list_policies()
+        return validate_policy_candidate(policy, existing)
 
     async def delete_policy(self, policy_id: str) -> bool:
         return await self._policy_repository.delete_policy(policy_id)

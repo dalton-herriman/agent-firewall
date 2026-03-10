@@ -60,3 +60,7 @@ Policies are evaluated against:
 - `conditions`: request field predicates over tool args and metadata
 
 Rules are sorted by ascending priority. The first matching rule decides the outcome. If nothing matches, the configured default mode applies.
+
+When multiple rules match at the same priority, `deny` wins over `allow`.
+
+Tool patterns use shell-style wildcard matching such as `filesystem.*`.

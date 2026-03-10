@@ -23,6 +23,7 @@ def upgrade() -> None:
         sa.Column("invocation_action", sa.String(length=50), nullable=False, server_default="invoke"),
         sa.Column("conditions", sa.JSON(), nullable=False, server_default="[]"),
         sa.Column("priority", sa.Integer(), nullable=False, server_default="100"),
+        sa.Column("version", sa.Integer(), nullable=False, server_default="1"),
         sa.Column("enabled", sa.Boolean(), nullable=False, server_default=sa.true()),
         sa.PrimaryKeyConstraint("id"),
     )

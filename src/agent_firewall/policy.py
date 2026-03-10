@@ -4,7 +4,9 @@ import re
 from collections.abc import Sequence
 from typing import Any
 
-from agent_firewall.models.policy import PolicyCondition, PolicyRule
+from fnmatch import fnmatch
+
+from agent_firewall.models.policy import PolicyCondition, PolicyRule, PolicyValidationResult
 from agent_firewall.models.tooling import ToolInvocationRequest
 
 
@@ -45,7 +47,7 @@ def evaluate_policy(request: ToolInvocationRequest, rules: Sequence[PolicyRule],
             and rule.resource.matches(request.tool_name)
             and all(_matches_condition(request, c) for c in rule.conditions)
         ],
-        key=lambda rule: rule.priority,
+        key=lambda rule: (rule.priority, 0 if rule.effect == "deny" else 1, rule.name),
     )
     if matching_rules:
         matched = matching_rules[0]
@@ -53,3 +55,29 @@ def evaluate_policy(request: ToolInvocationRequest, rules: Sequence[PolicyRule],
     if default_mode == "allow":
         return True, None, "default allow"
     return False, None, "default deny"
+
+
+def validate_policy_candidate(candidate: PolicyRule, existing_rules: Sequence[PolicyRule]) -> PolicyValidationResult:
+    errors: list[str] = []
+    for existing in existing_rules:
+        if str(existing.id) == str(candidate.id):
+            continue
+        same_priority = existing.priority == candidate.priority
+        same_operation = existing.operation == candidate.operation
+        overlapping_subjects = not existing.subject.agent_ids or not candidate.subject.agent_ids or bool(
+            set(existing.subject.agent_ids) & set(candidate.subject.agent_ids)
+        )
+        overlapping_resources = _resources_overlap(existing.resource.tool_names, candidate.resource.tool_names)
+        same_conditions = existing.conditions == candidate.conditions
+        conflicting_effect = existing.effect != candidate.effect
+        if same_priority and same_operation and overlapping_subjects and overlapping_resources and same_conditions and conflicting_effect:
+            errors.append(
+                f"policy '{candidate.name}' conflicts with '{existing.name}' at priority {candidate.priority}"
+            )
+    return PolicyValidationResult(valid=not errors, errors=errors)
+
+
+def _resources_overlap(left: list[str], right: list[str]) -> bool:
+    if not left or not right:
+        return True
+    return any(fnmatch(a, b) or fnmatch(b, a) for a in left for b in right)

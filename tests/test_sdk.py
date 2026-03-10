@@ -6,6 +6,7 @@ from agent_firewall.integrations.openai_agents import guard_openai_tool
 from agent_firewall.middleware import GuardedTool, tool_guard
 from agent_firewall.models.config import AdapterConfig, ToolArgumentSpec
 from agent_firewall.models.policy import PolicyCondition, PolicyRule, PolicyResource, PolicySubject
+from agent_firewall.policy import validate_policy_candidate
 from agent_firewall.repositories.memory import (
     InMemoryAdapterRepository,
     InMemoryAuditLogRepository,
@@ -114,3 +115,42 @@ async def test_openai_integration_wrapper_blocks_denied_call() -> None:
 
     with pytest.raises(PermissionError):
         await run(city="Austin")
+
+
+def test_policy_conflict_validation_detects_ambiguous_overlap() -> None:
+    existing = [
+        PolicyRule(
+            name="allow fs",
+            action="allow",
+            subject=PolicySubject(agent_ids=["agent-1"]),
+            resource=PolicyResource(tool_names=["filesystem.*"]),
+            priority=10,
+            conditions=[],
+        )
+    ]
+
+    candidate = PolicyRule(
+        name="deny fs",
+        action="deny",
+        subject=PolicySubject(agent_ids=["agent-1"]),
+        resource=PolicyResource(tool_names=["filesystem.delete"]),
+        priority=10,
+        conditions=[],
+    )
+
+    result = validate_policy_candidate(candidate, existing)
+
+    assert result.valid is False
+    assert result.errors
+
+
+def test_policy_model_supports_versioning() -> None:
+    policy = PolicyRule(
+        name="versioned",
+        action="allow",
+        subject=PolicySubject(agent_ids=["agent-1"]),
+        resource=PolicyResource(tool_names=["weather.lookup"]),
+        version=3,
+    )
+
+    assert policy.version == 3
